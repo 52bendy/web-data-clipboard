@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ReadableStream } from 'node:stream/web';
 import { createServer } from '../src/server.js';
+import { errorResponse } from '../src/middleware/errors.js';
 
 async function withServer(options, run) {
   const server = createServer(options);
@@ -57,6 +58,20 @@ test('protected routes accept only a valid header token', async () => {
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), { ok: true });
   });
+});
+
+test('shared error responses cover the documented status codes', async () => {
+  for (const status of [400, 401, 404, 429, 500]) {
+    const response = errorResponse(status);
+    assert.equal(response.status, status);
+    assert.deepEqual(await response.json(), {
+      code: status,
+      message: status === 401 ? 'Missing or invalid X-DCC-Token header.' : {
+        400: 'Bad request.', 404: 'Not found.', 429: 'Too many requests.', 500: 'Internal server error.',
+      }[status],
+      data: null,
+    });
+  }
 });
 
 test('missing server token fails closed', async () => {
