@@ -6,6 +6,10 @@ import {
 
 const DEFAULT_PORT = 3000;
 const DEFAULT_MAINTENANCE_INTERVAL_MS = 60 * 1000;
+/** Upper bound for raw_content (characters), §4.1.1 field validation. */
+const DEFAULT_MAX_RAW_CONTENT_LENGTH = 4096;
+/** Request body cap for the dev server, guards against oversized payloads. */
+const DEFAULT_MAX_BODY_BYTES = 64 * 1024;
 
 function positiveInt(value, fallback) {
   if (value === undefined || value === '') return fallback;
@@ -22,6 +26,8 @@ function nonNegativeInt(value, fallback) {
 export function getConfig(env = process.env) {
   return {
     port: positiveInt(env.PORT, DEFAULT_PORT),
+    // 采集接口鉴权 Token（PRD §9.1）：客户端以 X-DCC-Token 头携带（§4.1.1）。
+    apiSecretToken: env.API_SECRET_TOKEN || '',
     // 「自动提取」开关（PRD §4.2）：缺省开启，AUTO_EXTRACT=false|0 关闭；
     // 后续后台设置面板（REQ-202610-1262）接入后可覆盖该缺省值。
     autoExtract: env.AUTO_EXTRACT !== 'false' && env.AUTO_EXTRACT !== '0',
@@ -47,6 +53,15 @@ export function getConfig(env = process.env) {
         env.CLIPBOARD_MAINTENANCE_INTERVAL_MS,
         DEFAULT_MAINTENANCE_INTERVAL_MS,
       ),
+    },
+    collect: {
+      // raw_content length cap (characters); longer payloads are rejected 400.
+      maxRawContentLength: positiveInt(
+        env.MAX_RAW_CONTENT_LENGTH,
+        DEFAULT_MAX_RAW_CONTENT_LENGTH,
+      ),
+      // Request body cap in bytes; larger bodies are rejected 413.
+      maxBodyBytes: positiveInt(env.MAX_BODY_BYTES, DEFAULT_MAX_BODY_BYTES),
     },
   };
 }

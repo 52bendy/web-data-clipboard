@@ -2,7 +2,7 @@
 
 Node.js ESM backend and management frontend host. The API routes follow a serverless-friendly layout; `src/server.js` provides the zero-dependency local development server.
 
-Run `npm install` at the repository root, then `npm run dev`. The initial `GET /api/v1/health` route returns JSON. Collection, clipboard, devices, and webhook routes are added by their respective requirements.
+Run `npm install` at the repository root, then `npm run dev`. `GET /api/v1/health` and `POST /api/v1/collect` (below) are live; the clipboard, devices, and webhook routes are added by their respective requirements. Local environment variables are documented in `.env.example`.
 
 ## Clipboard storage service (REQ-202610-1255)
 
@@ -36,3 +36,49 @@ Environment variables:
 - Rules: 4–8 digit candidates (contiguous, or single-space separated groups) are scored by proximity to context keywords (验证码 / 校验码 / 动态码 / code / OTP …); order numbers, amounts, dates, alphanumeric tokens and over-long digit runs are excluded. Candidates below the score threshold are not extracted.
 - Toggle: `options.autoExtract: false` makes the function return the text-only result; `AUTO_EXTRACT=false|0` flips the default in `src/config.js` until the admin settings panel (REQ-202610-1262) takes over.
 - Sample set: `test/fixtures/code-samples.js` (20+ positive, 20+ negative), all covered by `npm test`.
+
+## Collection API (REQ-202610-1253)
+
+`POST /api/v1/collect` (PRD §4.1.1) — device report entry point. Handler in `api/v1/collect.js`, chain in `src/services/collect-service.js`: auth → validation → extraction (REQ-202610-1254) → clipboard update (REQ-202610-1255) → async dispatch (sink point for REQ-202610-1258) → response.
+
+```sh
+curl -i -X POST http://localhost:3000/api/v1/collect \
+  -H 'Content-Type: application/json' \
+  -H 'X-DCC-Token: <API_SECRET_TOKEN>' \
+  -d '{"device_id":"android_mi13_001","device_name":"小米 13Pro","platform":"android","sender":"+8610086","raw_content":"【中国移动】您的验证码是：839201，5分钟内有效。","timestamp":1728950400000}'
+```
+
+```json
+{
+  "code": 200,
+  "message": "Data collected successfully",
+  "data": { "collection_id": "col_1728950400000…", "extracted_code": "839201", "clipboard_updated": true }
+}
+```
+
+Request fields: `device_id` (1–128 chars of `A-Za-z0-9._:@-`), `device_name` (non-empty, ≤128), `platform` (`android` | `ios`), `sender` (optional, ≤64), `raw_content` (non-empty, ≤ `MAX_RAW_CONTENT_LENGTH`), `timestamp` (integer epoch ms, ≥ 2000-01-01 and ≤ server clock + 24h). Unknown fields are ignored; `extracted_code` is `null` when no code is found and the raw text is still stored.
+
+Errors use the shared envelope `{ code, message, data: null }`:
+
+| Status | When |
+| --- | --- |
+| 400 | malformed JSON, non-object body, or any field failing validation (message names the field) |
+| 401 | missing, malformed, or wrong `X-DCC-Token` (constant-time compare; also returned when `API_SECRET_TOKEN` is unset) |
+| 405 | any method other than POST on this path |
+| 413 | body larger than `MAX_BODY_BYTES` |
+| 500 | unexpected failure; the error is logged with its `collection_id` |
+
+Behaviour notes:
+
+- `collection_id` is minted per accepted report as `col_<server epoch ms><6 random digits>`; every accepted report logs `collect.received` / `collect.extracted` / `collect.clipboard_updated` / `collect.responded` (JSON lines via `src/utils/logger.js`) keyed by that id, so a report can be traced across the chain.
+- Dispatch is fire-and-forget: a slow or failing downstream sink never delays or fails the response, and its error is logged as `collect.dispatch_failed`.
+- The clipboard record is written with the server receive time; the device `timestamp` is only validated, never trusted for ordering (defect 23).
+- Rate limiting (30 req/min, §8.1) and HTTPS enforcement are owned by REQ-202610-1252 and layered in front of this handler.
+
+Environment variables:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `API_SECRET_TOKEN` | *(empty)* | Shared `X-DCC-Token` secret; empty ⇒ all collects rejected |
+| `MAX_RAW_CONTENT_LENGTH` | `4096` | `raw_content` character cap |
+| `MAX_BODY_BYTES` | `65536` | Request body cap |
