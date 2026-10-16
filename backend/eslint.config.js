@@ -1,0 +1,42 @@
+export default [
+  {
+    ignores: ['public/**'],
+  },
+  {
+    files: ['**/*.js'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+        URL: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        Buffer: 'readonly',
+        fetch: 'readonly',
+        Request: 'readonly',
+        Response: 'readonly',
+        Headers: 'readonly',
+        AbortController: 'readonly',
+        Error: 'readonly',
+        Date: 'readonly',
+        JSON: 'readonly',
+        Object: 'readonly',
+        String: 'readonly',
+        Number: 'readonly',
+        Math: 'readonly',
+        Promise: 'readonly',
+        Map: 'readonly',
+        Set: 'readonly',
+        Intl: 'readonly',
+        crypto: 'readonly',
+      },
+    },
+    rules: {
+      'no-unused-vars': 'error',
+      'no-undef': 'error',
+      'no-console': 'off',
+    },
+  },
+];

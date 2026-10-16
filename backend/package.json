@@ -1,0 +1,15 @@
+{
+  "name": "@web-data-clipboard/backend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node src/server.js",
+    "test": "node --test",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "eslint": "^9.17.0",
+    "prettier": "^3.4.2",
+    "eslint-config-prettier": "^9.1.0"
+  }
+}
