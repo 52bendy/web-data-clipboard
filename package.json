@@ -1,0 +1,12 @@
+{
+  "name": "web-data-clipboard",
+  "private": true,
+  "workspaces": [
+    "backend"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace backend",
+    "test": "npm test --workspace backend",
+    "lint": "npm run lint --workspace backend"
+  }
+}
