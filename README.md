@@ -18,7 +18,7 @@ npm run lint
 
 ## 目录说明
 
-- `backend/`：后端 API、本地开发服务器及管理前端静态资源落点。
+- `backend/`：后端 API、剪贴板存储服务、本地开发服务器及管理前端静态资源落点。
 - `android-client/`：Android Kotlin 采集端；Gradle 工程由后续子需求建设。
 - `ios-scripts/`：iOS 快捷指令接入包与教程，由后续子需求建设。
 
@@ -26,7 +26,7 @@ npm run lint
 
 - 后端采用 Node.js + JavaScript ESM，开发服务仅依赖 Node 内置模块，与 Vercel / Cloudflare 部署选型解耦。
 - 管理前端将基于 [shadcn-admin](https://github.com/satnaing/shadcn-admin)；本基线不引入其完整工程，`backend/public/` 作为未来构建产物目录。相较 PRD §3 的静态 `public/` 页面方案，这是负责人指定的模板决策；静态资源落点仍予保留。
-- 本阶段只提供健康检查路由。`collect`、`clipboard`、`devices`、`webhooks` 由对应后续子需求实现；部署配置（`vercel.json` / `wrangler.toml`）留待运行时选型任务。
+- 健康检查路由已提供；剪贴板存储服务（TTL / 原子更新 / 历史，REQ-202610-1255）落在 `backend/src/services/`，存储抽象层与部署选型解耦（内存实现可本地运行）。`collect`、`clipboard`、`devices`、`webhooks` 路由与部署配置（`vercel.json` / `wrangler.toml`）由对应后续子需求实现。
 - 仓库名为 `web-data-clipboard`，PRD 示例目录名 `data-collection-center` 仅为说明性名称。
 
 ## 规范入口

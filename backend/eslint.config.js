@@ -13,6 +13,8 @@ export default [
         URL: 'readonly',
         setTimeout: 'readonly',
         clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        structuredClone: 'readonly',
         Buffer: 'readonly',
         fetch: 'readonly',
         Request: 'readonly',
