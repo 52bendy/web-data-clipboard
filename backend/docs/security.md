@@ -12,7 +12,13 @@ createServer({ config, routes: [
 ] });
 ```
 
-Handlers receive `(request, url)` and return a web `Response`. Keep health public. A future rate limiter can return the shared 429 contract before dispatch.
+Handlers receive `(request, url)` and return a web `Response`. Keep health public. A route can opt into rate limiting by wrapping its handler with `rateLimit({ config })(handler)`; this task does not register a collect route.
+
+## Rate limiting
+
+The reusable limiter applies independent fixed-window counters to the `X-DCC-Token` identity and client IP; exceeding either returns HTTP 429 with the shared error envelope and an integer `Retry-After` header. Defaults are 30 requests per 60-second epoch-aligned window for each dimension. Configure `RATE_LIMIT_ENABLED` (`true`), `RATE_LIMIT_PER_MINUTE` (`30`), and `RATE_LIMIT_WINDOW_SECONDS` (`60`) through environment variables. `X-Forwarded-For` is considered only when `TRUST_PROXY=true`; the first comma-separated address is used, so the trusted proxy must overwrite this header. Otherwise the socket peer address is used. Token identifiers are SHA-256 digests, not raw token values.
+
+`RateLimitStore.increment(key, expiresAt, now)` is the replaceable counter interface; `InMemoryRateLimitStore` is the default implementation for local development and tests. A shared Redis/KV adapter can implement the same atomic increment/expiry contract and be injected into `rateLimit`. The in-memory store is process-local and does not coordinate across serverless invocations or multiple instances. Production multi-instance deployments must use a shared driver; that work is assigned to REQ-202610-1251/1256.
 
 ## Error response envelope
 
