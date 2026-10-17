@@ -34,7 +34,10 @@ export function newCollectionId(
  */
 export function validateCollectPayload(
   body,
-  { maxRawContentLength = DEFAULT_MAX_RAW_CONTENT_LENGTH, now = Date.now() } = {},
+  {
+    maxRawContentLength = DEFAULT_MAX_RAW_CONTENT_LENGTH,
+    now = Date.now(),
+  } = {},
 ) {
   if (body === null || typeof body !== 'object' || Array.isArray(body)) {
     return { ok: false, message: 'request body must be a JSON object.' };
@@ -166,6 +169,7 @@ export function createCollectService({
       dispatch(record, {
         collection_id: collectionId,
         device_id: payload.device_id,
+        sender: payload.sender,
       }),
     ).catch((error) => {
       logger?.error('collect.dispatch_failed', {

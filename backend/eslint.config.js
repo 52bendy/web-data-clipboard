@@ -14,6 +14,7 @@ export default [
         setTimeout: 'readonly',
         clearTimeout: 'readonly',
         setInterval: 'readonly',
+        clearInterval: 'readonly',
         structuredClone: 'readonly',
         Buffer: 'readonly',
         fetch: 'readonly',

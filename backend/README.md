@@ -2,7 +2,7 @@
 
 Node.js ESM backend and management frontend host. The API routes follow a serverless-friendly layout; `src/server.js` provides the zero-dependency local development server.
 
-Run `npm install` at the repository root, then `npm run dev`. `GET /api/v1/health` and `POST /api/v1/collect` (below) are live; the clipboard, devices, and webhook routes are added by their respective requirements. Local environment variables are documented in `.env.example`.
+Run `npm install` at the repository root, then `npm run dev`. `GET /api/v1/health`, `POST /api/v1/collect` and the Webhook management routes (below) are live; the clipboard and devices read routes are added by their respective requirements. Local environment variables are documented in `.env.example`.
 
 ## Clipboard storage service (REQ-202610-1255)
 
@@ -20,13 +20,13 @@ Semantics:
 
 Environment variables:
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `STORAGE_DRIVER` | `memory` | Storage adapter (`memory` only until REQ-202610-1251) |
-| `CLIPBOARD_TTL_MS` | `1800000` | Latest-record TTL |
-| `CLIPBOARD_HISTORY_MAX_ENTRIES` | `500` | History retention by count (0 = unlimited) |
-| `CLIPBOARD_HISTORY_TTL_MS` | `86400000` | History retention by age (0 = unlimited) |
-| `CLIPBOARD_MAINTENANCE_INTERVAL_MS` | `60000` | Expiry sweep interval of the dev server |
+| Variable                            | Default    | Purpose                                               |
+| ----------------------------------- | ---------- | ----------------------------------------------------- |
+| `STORAGE_DRIVER`                    | `memory`   | Storage adapter (`memory` only until REQ-202610-1251) |
+| `CLIPBOARD_TTL_MS`                  | `1800000`  | Latest-record TTL                                     |
+| `CLIPBOARD_HISTORY_MAX_ENTRIES`     | `500`      | History retention by count (0 = unlimited)            |
+| `CLIPBOARD_HISTORY_TTL_MS`          | `86400000` | History retention by age (0 = unlimited)              |
+| `CLIPBOARD_MAINTENANCE_INTERVAL_MS` | `60000`    | Expiry sweep interval of the dev server               |
 
 ## Verification code extraction (REQ-202610-1254)
 
@@ -52,7 +52,11 @@ curl -i -X POST http://localhost:3000/api/v1/collect \
 {
   "code": 200,
   "message": "Data collected successfully",
-  "data": { "collection_id": "col_1728950400000…", "extracted_code": "839201", "clipboard_updated": true }
+  "data": {
+    "collection_id": "col_1728950400000…",
+    "extracted_code": "839201",
+    "clipboard_updated": true
+  }
 }
 ```
 
@@ -60,13 +64,13 @@ Request fields: `device_id` (1–128 chars of `A-Za-z0-9._:@-`), `device_name` (
 
 Errors use the shared envelope `{ code, message, data: null }`:
 
-| Status | When |
-| --- | --- |
-| 400 | malformed JSON, non-object body, or any field failing validation (message names the field) |
-| 401 | missing, malformed, or wrong `X-DCC-Token` (constant-time compare; also returned when `API_SECRET_TOKEN` is unset) |
-| 405 | any method other than POST on this path |
-| 413 | body larger than `MAX_BODY_BYTES` |
-| 500 | unexpected failure; the error is logged with its `collection_id` |
+| Status | When                                                                                                               |
+| ------ | ------------------------------------------------------------------------------------------------------------------ |
+| 400    | malformed JSON, non-object body, or any field failing validation (message names the field)                         |
+| 401    | missing, malformed, or wrong `X-DCC-Token` (constant-time compare; also returned when `API_SECRET_TOKEN` is unset) |
+| 405    | any method other than POST on this path                                                                            |
+| 413    | body larger than `MAX_BODY_BYTES`                                                                                  |
+| 500    | unexpected failure; the error is logged with its `collection_id`                                                   |
 
 Behaviour notes:
 
@@ -77,8 +81,24 @@ Behaviour notes:
 
 Environment variables:
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `API_SECRET_TOKEN` | *(empty)* | Shared `X-DCC-Token` secret; empty ⇒ all collects rejected |
-| `MAX_RAW_CONTENT_LENGTH` | `4096` | `raw_content` character cap |
-| `MAX_BODY_BYTES` | `65536` | Request body cap |
+| Variable                 | Default   | Purpose                                                    |
+| ------------------------ | --------- | ---------------------------------------------------------- |
+| `API_SECRET_TOKEN`       | _(empty)_ | Shared `X-DCC-Token` secret; empty ⇒ all collects rejected |
+| `MAX_RAW_CONTENT_LENGTH` | `4096`    | `raw_content` character cap                                |
+| `MAX_BODY_BYTES`         | `65536`   | Request body cap                                           |
+
+## Webhook configuration and async dispatch (REQ-202610-1258)
+
+`/api/v1/webhooks` manages downstream consumers (URL / name / enabled; HMAC secret generated per config). After each accepted collection the dispatcher fans out asynchronously to every enabled Webhook: it formats a §7.2.2-style `message`, sends the structured payload with `X-DCC-Signature: sha256=<HMAC-SHA256(secret, "<timestamp>.<raw body>")>`, applies a per-attempt timeout and exponential-backoff retries, and records every success/failure in `/api/v1/webhooks/deliveries` for the admin UI. `POST /api/v1/webhooks/:id/test` is the backend for the admin "test" button.
+
+Targets are restricted to public `https:` endpoints: loopback/private/reserved IPs, local hostnames and DNS answers that resolve to them are rejected at config time and again at delivery time (defect 22 / SSRF). Full API, payload, signature-verification and retry contract: [`docs/webhooks.md`](docs/webhooks.md).
+
+Environment variables:
+
+| Variable                      | Default | Purpose                              |
+| ----------------------------- | ------- | ------------------------------------ |
+| `WEBHOOK_TIMEOUT_MS`          | `5000`  | Per-attempt delivery timeout         |
+| `WEBHOOK_MAX_ATTEMPTS`        | `3`     | Total attempts including the first   |
+| `WEBHOOK_RETRY_BASE_DELAY_MS` | `1000`  | Exponential backoff base (1s, 2s, …) |
+| `WEBHOOK_MAX_CONFIGS`         | `20`    | Maximum stored Webhook configs       |
+| `WEBHOOK_MAX_DELIVERIES`      | `200`   | Delivery-log retention               |

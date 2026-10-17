@@ -22,7 +22,8 @@ import { ok } from '../../src/utils/respond.js';
 export function createCollectHandler({
   config = getConfig(),
   services,
-  dispatch = dispatcher.dispatch.bind(dispatcher),
+  dispatch = services?.dispatcher?.dispatch.bind(services.dispatcher) ??
+    dispatcher.dispatch.bind(dispatcher),
   logger = createLogger(),
   now = Date.now,
   randomInt,

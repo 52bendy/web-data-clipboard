@@ -10,6 +10,12 @@ const DEFAULT_MAINTENANCE_INTERVAL_MS = 60 * 1000;
 const DEFAULT_MAX_RAW_CONTENT_LENGTH = 4096;
 /** Request body cap for the dev server, guards against oversized payloads. */
 const DEFAULT_MAX_BODY_BYTES = 64 * 1024;
+/** Webhook delivery limits (REQ-202610-1258). */
+const DEFAULT_WEBHOOK_TIMEOUT_MS = 5000;
+const DEFAULT_WEBHOOK_MAX_ATTEMPTS = 3;
+const DEFAULT_WEBHOOK_RETRY_BASE_DELAY_MS = 1000;
+const DEFAULT_WEBHOOK_MAX_CONFIGS = 20;
+const DEFAULT_WEBHOOK_MAX_DELIVERIES = 200;
 
 function positiveInt(value, fallback) {
   if (value === undefined || value === '') return fallback;
@@ -24,10 +30,39 @@ function nonNegativeInt(value, fallback) {
 }
 
 export function getConfig(env = process.env) {
+  const enforceHttps = env.ENFORCE_HTTPS?.toLowerCase();
+  const rateLimitEnabled = env.RATE_LIMIT_ENABLED?.toLowerCase();
+  const rateLimitPerMinute = Number(env.RATE_LIMIT_PER_MINUTE ?? 30);
+  const rateLimitWindowSeconds = Number(env.RATE_LIMIT_WINDOW_SECONDS ?? 60);
+  if (enforceHttps !== undefined && !['true', 'false'].includes(enforceHttps)) {
+    throw new Error('ENFORCE_HTTPS must be true or false.');
+  }
+  if (
+    rateLimitEnabled !== undefined &&
+    !['true', 'false'].includes(rateLimitEnabled)
+  ) {
+    throw new Error('RATE_LIMIT_ENABLED must be true or false.');
+  }
+  if (!Number.isInteger(rateLimitPerMinute) || rateLimitPerMinute < 1) {
+    throw new Error('RATE_LIMIT_PER_MINUTE must be a positive integer.');
+  }
+  if (!Number.isInteger(rateLimitWindowSeconds) || rateLimitWindowSeconds < 1) {
+    throw new Error('RATE_LIMIT_WINDOW_SECONDS must be a positive integer.');
+  }
   return {
     port: positiveInt(env.PORT, DEFAULT_PORT),
     // 采集接口鉴权 Token（PRD §9.1）：客户端以 X-DCC-Token 头携带（§4.1.1）。
     apiSecretToken: env.API_SECRET_TOKEN || '',
+    enforceHttps:
+      enforceHttps === undefined
+        ? env.NODE_ENV === 'production'
+        : enforceHttps === 'true',
+    trustProxy: env.TRUST_PROXY === 'true',
+    contentSecurityPolicy: env.CONTENT_SECURITY_POLICY || "default-src 'self'",
+    hstsMaxAge: Number(env.HSTS_MAX_AGE || 31536000),
+    rateLimitEnabled: rateLimitEnabled !== 'false',
+    rateLimitPerMinute,
+    rateLimitWindowSeconds,
     // 「自动提取」开关（PRD §4.2）：缺省开启，AUTO_EXTRACT=false|0 关闭；
     // 后续后台设置面板（REQ-202610-1262）接入后可覆盖该缺省值。
     autoExtract: env.AUTO_EXTRACT !== 'false' && env.AUTO_EXTRACT !== '0',
@@ -62,6 +97,29 @@ export function getConfig(env = process.env) {
       ),
       // Request body cap in bytes; larger bodies are rejected 413.
       maxBodyBytes: positiveInt(env.MAX_BODY_BYTES, DEFAULT_MAX_BODY_BYTES),
+    },
+    webhook: {
+      // Per-attempt network timeout; retries use exponential backoff.
+      timeoutMs: positiveInt(
+        env.WEBHOOK_TIMEOUT_MS,
+        DEFAULT_WEBHOOK_TIMEOUT_MS,
+      ),
+      maxAttempts: positiveInt(
+        env.WEBHOOK_MAX_ATTEMPTS,
+        DEFAULT_WEBHOOK_MAX_ATTEMPTS,
+      ),
+      retryBaseDelayMs: nonNegativeInt(
+        env.WEBHOOK_RETRY_BASE_DELAY_MS,
+        DEFAULT_WEBHOOK_RETRY_BASE_DELAY_MS,
+      ),
+      maxConfigs: positiveInt(
+        env.WEBHOOK_MAX_CONFIGS,
+        DEFAULT_WEBHOOK_MAX_CONFIGS,
+      ),
+      maxDeliveries: positiveInt(
+        env.WEBHOOK_MAX_DELIVERIES,
+        DEFAULT_WEBHOOK_MAX_DELIVERIES,
+      ),
     },
   };
 }
