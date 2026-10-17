@@ -166,7 +166,8 @@ class ReportRetryWorkerTest {
     private fun pendingWork(id: String): androidx.work.WorkInfo =
         WorkManager.getInstance(context)
             .getWorkInfosForUniqueWork(ReportScheduler.workName(id)).get()
-            .last { !it.state.isFinished }
+            .filter { !it.state.isFinished }
+            .maxByOrNull { it.initialDelayMillis }!!
 
     private fun assertScheduledAttempt(
         work: androidx.work.WorkInfo,
