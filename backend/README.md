@@ -6,7 +6,7 @@ Run `npm install` at the repository root, then `npm run dev`. The initial `GET /
 
 ## Runtime entry points (REQ-202610-1251)
 
-The backend shares its request handler between the local `node src/server.js` development server and the Vercel Node Function at `api/index.js`. `vercel.json` rewrites all paths to that function, preserving the original request path for routing. Check a running backend with `node scripts/health-check.js [url]`; the URL defaults to `http://localhost:3000/api/v1/health`.
+The backend shares its request handler between the local `node src/server.js` development server and Vercel Functions. Vercel filesystem routes take precedence: `/api/v1/health` is served directly by `api/v1/health.js`, while the `vercel.json` rewrite is a fallback for paths that do not match a Function. Check a running backend with `node scripts/health-check.js [url]`; the URL defaults to `http://localhost:3000/api/v1/health`.
 
 ## Clipboard storage service (REQ-202610-1255)
 

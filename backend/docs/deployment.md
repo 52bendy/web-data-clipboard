@@ -2,7 +2,7 @@
 
 ## Runtime choice
 
-This service targets Vercel Serverless Functions on Node.js 20.x, with the Vercel project Root Directory set to `backend`. The shared handler is exposed through `api/index.js`; the existing implementation uses Node's `node:http` and ESM and needs no runtime dependencies. Cloudflare Workers use a Fetch-style `fetch` handler rather than this Node HTTP entry point, so Vercel minimizes changes today. A future Workers migration can retain the HTTP-based Upstash REST storage adapter and replace/adapt only the platform entry point, then rerun the API and health-check tests.
+This service targets Vercel Serverless Functions on Node.js 20.x, with the Vercel project Root Directory set to `backend`. The catch-all handler is exposed through `api/index.js`; Vercel filesystem routes take precedence, so `/api/v1/health` is served directly by `api/v1/health.js` and the `vercel.json` rewrite is only a fallback for unmatched paths. The implementation uses Node's `node:http` and ESM and needs no runtime dependencies. Cloudflare Workers use a Fetch-style `fetch` handler rather than this Node HTTP entry point, so Vercel minimizes changes today. A future Workers migration can retain the HTTP-based Upstash REST storage adapter and replace/adapt only the platform entry point, then rerun the API and health-check tests.
 
 ## Storage
 

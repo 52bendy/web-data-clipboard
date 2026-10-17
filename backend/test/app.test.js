@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createApp } from '../src/app.js';
 import vercelHandler from '../api/index.js';
+import healthHandler from '../api/v1/health.js';
 
 function mockResponse() {
   return {
@@ -32,6 +33,20 @@ test('createApp responds to health and unknown paths', async () => {
   const missing = await request(handler, '/missing');
   assert.equal(missing.status, 404);
   assert.deepEqual(missing.json, { error: 'not_found' });
+});
+
+test('health Vercel Function directly serves GET and rejects other methods', async () => {
+  const health = await request(healthHandler, '/api/v1/health');
+  assert.equal(health.status, 200);
+  assert.deepEqual(health.json, { status: 'ok' });
+
+  const response = mockResponse();
+  await healthHandler(
+    { method: 'POST', url: '/ignored', headers: {} },
+    response,
+  );
+  assert.equal(response.status, 405);
+  assert.deepEqual(JSON.parse(response.body), { error: 'method_not_allowed' });
 });
 
 test('Vercel handler responds to health and unknown paths', async () => {
