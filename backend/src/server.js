@@ -5,64 +5,85 @@ import { createCollectHandler } from '../api/v1/collect.js';
 import { createServices } from './services/index.js';
 import { errorResponse } from './middleware/errors.js';
 import { createLogger } from './utils/logger.js';
+import { authorize } from './middleware/auth.js';
+import { isHttps } from './middleware/httpsEnforce.js';
+import { rateLimit } from './middleware/rateLimit.js';
+import { securityHeaders } from './middleware/securityHeaders.js';
+import { pathToFileURL } from 'node:url';
 
-/**
- * Zero-dependency development server. Routes are registered here as their
- * requirements land; REQ-202610-1252 restructures this into the shared
- * app/route table, keeping route handlers unchanged.
- */
-export function createServer({
+/** Create the shared request handler with mandatory security controls. */
+export function createApp({
   config = getConfig(),
   services = createServices({ config }),
   logger = createLogger(),
+  routes = [],
 } = {}) {
   const collect = createCollectHandler({ config, services, logger });
+  const protectedCollect = rateLimit({ config })(collect);
+  const builtInRoutes = [
+    { method: 'POST', path: '/api/v1/collect', auth: false, handler: protectedCollect },
+    ...routes.filter((route) => route.path !== '/api/v1/health'),
+  ];
 
-  // Sweep expired clipboard entries so TTL cleanup does not rely on reads
-  // alone (§8.2). The timer must not keep the process alive on its own.
-  const purgeTimer = setInterval(() => {
-    services.clipboardStore
-      .purgeExpired()
-      .catch((error) =>
-        logger.error('clipboard.purge_failed', { error: String(error) }),
-      );
-  }, config.clipboard.maintenanceIntervalMs);
-  purgeTimer.unref();
-
-  return createHttpServer(async (request, response) => {
-    const url = new URL(
-      request.url,
-      `http://${request.headers.host || 'localhost'}`,
-    );
+  return async (request, response) => {
     try {
-      if (url.pathname === '/api/v1/collect') {
-        if (request.method !== 'POST') {
-          return send(response, errorResponse(405));
-        }
-        return send(response, await collect(request));
-      }
+      const https = isHttps(request, config.trustProxy === true);
+      for (const [name, value] of Object.entries(securityHeaders({
+        contentSecurityPolicy: config.contentSecurityPolicy || "default-src 'self'",
+        hstsMaxAge: config.hstsMaxAge ?? 31536000,
+      }, https))) response.setHeader(name, value);
+      if (config.enforceHttps && !https) return await send(response, errorResponse(403));
+
+      const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
       if (request.method === 'GET' && url.pathname === '/api/v1/health') {
-        return send(response, health());
+        return await send(response, health());
       }
-      return send(response, errorResponse(404));
+      if (url.pathname === '/api/v1/collect' && request.method !== 'POST') {
+        return await send(response, errorResponse(405));
+      }
+      const route = builtInRoutes.find((item) => item.method === request.method && item.path === url.pathname);
+      if (route) {
+        if (route.auth) {
+          const denied = authorize(request, config.apiSecretToken);
+          if (denied) return await send(response, denied);
+        }
+        return await send(response, await route.handler(request, url));
+      }
+      return await send(response, errorResponse(404));
     } catch (error) {
-      logger.error('request.failed', {
-        path: url.pathname,
-        error: String(error),
-      });
-      return send(response, errorResponse(500));
+      logger.error('request.failed', { error: String(error) });
+      return await send(response, errorResponse(500));
     }
-  });
+  };
+}
+
+export function createServer(options = {}) {
+  const config = options.config || getConfig();
+  const services = options.services || createServices({ config });
+  const logger = options.logger || createLogger();
+  const app = createApp({ ...options, config, services, logger });
+  const server = createHttpServer(app);
+  const purgeTimer = setInterval(() => {
+    services.clipboardStore.purgeExpired().catch((error) =>
+      logger.error('clipboard.purge_failed', { error: String(error) }),
+    );
+  }, config.clipboard?.maintenanceIntervalMs || 60_000);
+  purgeTimer.unref();
+  return server;
 }
 
 async function send(response, result) {
-  response.writeHead(result.status, Object.fromEntries(result.headers));
-  response.end(await result.text());
+  const body = await result.text();
+  for (const [name, value] of result.headers) {
+    if (!response.hasHeader(name)) response.setHeader(name, value);
+  }
+  response.writeHead(result.status);
+  response.end(body);
 }
 
 if (
   process.argv[1] &&
-  import.meta.url === new URL(`file://${process.argv[1]}`).href
+  import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
   const config = getConfig();
   if (!config.apiSecretToken) {
