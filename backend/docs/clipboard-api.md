@@ -114,3 +114,12 @@ A `304 Not Modified` response has no body and carries the current `ETag`,
 curl -sS http://localhost:3000/api/v1/clipboard/latest \
   -H 'X-DCC-Token: <API_SECRET_TOKEN>' | jq .
 ```
+
+## Realtime alternative
+
+Consumers that need push instead of polling can subscribe to
+`GET /api/v1/clipboard/stream` (REQ-202610-1274). Each `clipboard.updated`
+event carries the same `data` object documented above, and its event `id`
+matches the ETag identity (`<updated_at_ms>-<clipboard_id>`). See
+[realtime.md](realtime.md) for the SSE contract, heartbeat, reconnect and
+connection-limit details.

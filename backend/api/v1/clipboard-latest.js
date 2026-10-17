@@ -1,6 +1,10 @@
 import { getConfig } from '../../src/config.js';
 import { authorize } from '../../src/middleware/auth.js';
 import { errorResponse } from '../../src/middleware/errors.js';
+import {
+  buildClipboardPayload,
+  getClipboardTiming,
+} from '../../src/services/clipboard-payload.js';
 import { DEFAULT_TTL_MS } from '../../src/services/clipboard-store.js';
 
 /** Defect 24: an absent or TTL-expired clipboard is indistinguishable (404). */
@@ -98,47 +102,11 @@ export function createClipboardLatestHandler({
 }
 
 /**
- * Computes the server-authoritative expiry timing of a clipboard record.
- * Returns null when the record has no parseable `updated_at`.
+ * Re-exported for existing consumers (admin dashboard); the implementation
+ * lives in `src/services/clipboard-payload.js` so SSE events and reads share
+ * one field mapping.
  */
-export function getClipboardTiming(
-  record,
-  { ttlMs = DEFAULT_TTL_MS, nowMs = Date.now() } = {},
-) {
-  if (!record) return null;
-  const updatedAtMs =
-    typeof record.updated_at === 'number'
-      ? record.updated_at
-      : Date.parse(record.updated_at);
-  if (!Number.isFinite(updatedAtMs)) return null;
-  return {
-    updatedAtMs,
-    nowMs,
-    remainingMs: updatedAtMs + ttlMs - nowMs,
-  };
-}
-
-/**
- * Builds the PRD §4.1.2 clipboard payload shared by the public read API and
- * the admin dashboard card, so both views cannot drift apart. Returns null for
- * absent or TTL-expired records; expired content is never returned (defect 24).
- */
-export function buildClipboardPayload(
-  record,
-  { ttlMs = DEFAULT_TTL_MS, nowMs = Date.now() } = {},
-) {
-  const timing = getClipboardTiming(record, { ttlMs, nowMs });
-  if (!timing || timing.remainingMs <= 0) return null;
-  return {
-    content: record.parsed_code ?? record.full_text,
-    type: record.data_type,
-    raw_text: record.full_text,
-    source_device: record.source?.device_name ?? 'unknown',
-    platform: record.source?.platform ?? 'unknown',
-    updated_at: timing.updatedAtMs,
-    expire_in_seconds: Math.ceil(timing.remainingMs / 1000),
-  };
-}
+export { buildClipboardPayload, getClipboardTiming };
 
 /**
  * Evaluates HTTP conditional headers against the clipboard's server-side

@@ -124,6 +124,10 @@ export function createClipboardStore({
   historyMaxEntries = DEFAULT_HISTORY_MAX_ENTRIES,
   historyMaxAgeMs = DEFAULT_HISTORY_MAX_AGE_MS,
   now = Date.now,
+  // Optional post-write hook used by the realtime feed (REQ-202610-1274).
+  // Hook failures must never reject an already-persisted clipboard update.
+  onWrite = null,
+  logger = null,
 } = {}) {
   if (!storage) {
     throw new Error('createClipboardStore requires a storage adapter');
@@ -144,6 +148,16 @@ export function createClipboardStore({
       const base = Array.isArray(history) ? history : [];
       return trimHistory([...base, stored], historyPolicy, now());
     });
+    if (onWrite) {
+      try {
+        await onWrite(stored);
+      } catch (error) {
+        logger?.error('clipboard.write_hook_failed', {
+          clipboard_id: stored.clipboard_id,
+          error: String(error),
+        });
+      }
+    }
     return stored;
   }
 

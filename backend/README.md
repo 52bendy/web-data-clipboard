@@ -286,3 +286,40 @@ The acceptance matrix (functional / performance / security / compatibility) and
 the §8.3 cold-start measurement definition are in
 [docs/acceptance-matrix.md](docs/acceptance-matrix.md). PC usage and platform
 dependencies are documented in [docs/pc-poll-sync.md](docs/pc-poll-sync.md).
+
+## Realtime clipboard feed (REQ-202610-1274)
+
+`GET /api/v1/clipboard/stream` is a Server-Sent Events feed for clipboard
+updates. It uses the same `X-DCC-Token` header and emits the exact
+`GET /api/v1/clipboard/latest` payload, so a consumer can switch from polling
+to push without changing its data model:
+
+```sh
+curl -N http://localhost:3000/api/v1/clipboard/stream \
+  -H 'X-DCC-Token: <API_SECRET_TOKEN>'
+```
+
+- `event: ready` carries `retry` and the heartbeat cadence; every subsequent
+  `clipboard.updated` has `id: <updated_at>-<clipboard_id>` and the §4.1.2
+  fields (`content`, `type`, `raw_text`, `source_device`, `platform`,
+  `updated_at`, `expire_in_seconds`).
+- Idle connections receive `: heartbeat <epoch-ms>` comment frames. Clients
+  reconnect with `Last-Event-ID`; the server skips a snapshot the client has
+  already seen.
+- `REALTIME_MAX_CONNECTIONS` caps concurrent subscribers (503 + `Retry-After`
+  when full); `REALTIME_CONNECTION_TTL_MS` can force a clean reconnect before a
+  serverless function timeout; `REALTIME_ENABLED=false` disables the feed.
+- `node backend/scripts/sse-subscribe.js --help` runs the zero-dependency
+  subscriber example (system clipboard + desktop notification, automatic
+  reconnect).
+
+The wire contract, Serverless/free-tier guidance and the WebSocket assessment
+are in [docs/realtime.md](docs/realtime.md).
+
+| Variable                             | Default | Purpose                                      |
+| ------------------------------------ | ------- | -------------------------------------------- |
+| `REALTIME_ENABLED`                   | `true`  | `false` disables the SSE endpoint (503)      |
+| `REALTIME_HEARTBEAT_INTERVAL_MS`     | `15000` | Heartbeat comment interval                   |
+| `REALTIME_MAX_CONNECTIONS`           | `100`   | Maximum concurrent subscriptions per process |
+| `REALTIME_RETRY_MS`                  | `3000`  | Reconnect delay sent to clients              |
+| `REALTIME_CONNECTION_TTL_MS`         | `0`     | Maximum connection lifetime (0 = unlimited)  |
