@@ -36,3 +36,5 @@ Environment variables:
 | `CLIPBOARD_MAINTENANCE_INTERVAL_MS` | `60000` | Expiry sweep interval of the dev server |
 
 With `STORAGE_DRIVER=upstash`, both Upstash credentials are required and startup fails fast if either is missing. `update` uses a per-key distributed Redis lock (`SET NX PX`) with a unique token and compare-and-delete release, so concurrent service instances serialize read-modify-write operations. Lock acquisition retries at most 200 times (25 ms between attempts); the lock expires after 5 seconds if a process exits unexpectedly.
+
+The complete environment-variable inventory (including planned security settings) is in [`.env.example`](.env.example); see the [deployment guide](docs/deployment.md) for supported deployment configuration and limitations.

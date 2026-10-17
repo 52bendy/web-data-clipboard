@@ -26,8 +26,12 @@ npm run lint
 
 - 后端采用 Node.js + JavaScript ESM，开发服务仅依赖 Node 内置模块，与 Vercel / Cloudflare 部署选型解耦。
 - 管理前端将基于 [shadcn-admin](https://github.com/satnaing/shadcn-admin)；本基线不引入其完整工程，`backend/public/` 作为未来构建产物目录。相较 PRD §3 的静态 `public/` 页面方案，这是负责人指定的模板决策；静态资源落点仍予保留。
-- 健康检查路由已提供；剪贴板存储服务（TTL / 原子更新 / 历史，REQ-202610-1255）落在 `backend/src/services/`，存储抽象层与部署选型解耦（内存实现可本地运行）。`collect`、`clipboard`、`devices`、`webhooks` 路由与部署配置（`vercel.json` / `wrangler.toml`）由对应后续子需求实现。
+- 健康检查路由与 Vercel Node.js 入口（`backend/vercel.json`）已提供；剪贴板存储服务（TTL / 原子更新 / 历史，REQ-202610-1255）落在 `backend/src/services/`，内存实现可供本地运行。Cloudflare Workers 入口及 `wrangler.toml` 尚未实现；部署细节见 [部署指南](backend/docs/deployment.md)。
 - 仓库名为 `web-data-clipboard`，PRD 示例目录名 `data-collection-center` 仅为说明性名称。
+
+## 部署
+
+生产部署目标为 Vercel Node.js 20.x + Upstash Redis；CI 与有密钥时的自动部署由 GitHub Actions 管理。详见 [部署指南](backend/docs/deployment.md) 与 [后端环境变量清单](backend/.env.example)。健康检查：`curl -i https://<domain>/api/v1/health`。
 
 ## 规范入口
 
