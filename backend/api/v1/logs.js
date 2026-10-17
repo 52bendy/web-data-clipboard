@@ -59,13 +59,18 @@ export function createLogsHandler({
   config = getConfig(),
   services,
   logger = null,
+  enforceToken = true,
 } = {}) {
   return async function handleLogs(request) {
     if (request.method !== 'GET') {
       return errorResponse(405);
     }
-    const denied = authorize(request, config.apiSecretToken);
-    if (denied) return denied;
+    // See createStatsHandler: the admin session variant is pre-authenticated
+    // by the management-prefix guard and must not require a browser-held token.
+    if (enforceToken) {
+      const denied = authorize(request, config.apiSecretToken);
+      if (denied) return denied;
+    }
 
     const url = new URL(request.url, 'http://localhost');
     const params = url.searchParams;

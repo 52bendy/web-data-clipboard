@@ -90,22 +90,26 @@ export function createApp({
         if (route.admin && !managementApi && !admin.authenticate(request)) {
           return await send(response, admin.unauthorized());
         }
+        let handler = route.handler;
         if (route.auth) {
           const adminAllowed =
             route.allowAdmin === true && admin.authenticate(request);
           if (!adminAllowed) {
             const denied = authorize(request, config.apiSecretToken);
             if (denied) return await send(response, denied);
+          } else if (route.adminHandler) {
+            handler = route.adminHandler;
           }
         }
-        return await send(response, await route.handler(request, url));
+        return await send(response, await handler(request, url));
       }
       // A known path with an unsupported method is 405, not 404.
       if (pathKnown) {
         return await send(response, errorResponse(405));
       }
       return await send(response, errorResponse(404));
-    } catch {
+    } catch (error) {
+      console.error('request.failed', { error: String(error) });
       return send(response, errorResponse(500));
     }
   };
@@ -128,6 +132,18 @@ export function createServer({
   });
   const logs = createLogsHandler({ config, services, logger });
   const stats = createStatsHandler({ config, services, logger });
+  const logsAdmin = createLogsHandler({
+    config,
+    services,
+    logger,
+    enforceToken: false,
+  });
+  const statsAdmin = createStatsHandler({
+    config,
+    services,
+    logger,
+    enforceToken: false,
+  });
 
   const defaultRoutes = routes ?? [
     { method: 'POST', path: '/api/v1/collect', auth: true, handler: collect },
@@ -143,6 +159,7 @@ export function createServer({
       auth: true,
       allowAdmin: true,
       handler: logs,
+      adminHandler: logsAdmin,
     },
     {
       method: 'GET',
@@ -150,6 +167,7 @@ export function createServer({
       auth: true,
       allowAdmin: true,
       handler: stats,
+      adminHandler: statsAdmin,
     },
   ];
 

@@ -27,7 +27,9 @@ ADMIN_USERNAME=admin ADMIN_PASSWORD_HASH='scrypt$...' npm run dev
 ```
 
 未配置凭据时后台 fail closed；管理 API（devices / webhooks / logs / stats / settings）
-统一要求登录态。详见 [backend/docs/admin-auth.md](backend/docs/admin-auth.md)。
+统一要求登录态。登录后的 `/admin` 首页为运营仪表盘：今日采集 / 解析验证码 / 绑定设备
+三张统计卡，以及带复制、手动刷新和自动轮询的实时剪贴板卡片，并明确展示空态与过期态。
+详见 [backend/docs/admin-auth.md](backend/docs/admin-auth.md) 与 [backend/README.md](backend/README.md#admin-dashboard-req-202610-1261-prd-42)。
 
 ## 目录说明
 

@@ -15,13 +15,19 @@ export function createStatsHandler({
   config = getConfig(),
   services,
   logger = null,
+  enforceToken = true,
 } = {}) {
   return async function handleStats(request) {
     if (request.method !== 'GET') {
       return errorResponse(405);
     }
-    const denied = authorize(request, config.apiSecretToken);
-    if (denied) return denied;
+    // The route table enforces X-DCC-Token for public callers; the admin
+    // session variant passes enforceToken=false because the session was
+    // already verified by the management-prefix guard.
+    if (enforceToken) {
+      const denied = authorize(request, config.apiSecretToken);
+      if (denied) return denied;
+    }
 
     try {
       const stats = await services.collectionLogStore.getStats();

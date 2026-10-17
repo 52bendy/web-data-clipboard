@@ -56,6 +56,7 @@ export function createAdmin({
   logger = console,
   now = Date.now,
   staticRoot = DEFAULT_STATIC_ROOT,
+  apiHandlers = {},
 } = {}) {
   const adminConfig = config.admin || {};
   const verifier = createPasswordVerifier({
@@ -274,6 +275,10 @@ export function createAdmin({
         .replaceAll(
           '{{EXPIRES_AT}}',
           escapeHtml(session ? new Date(session.expiresAt).toISOString() : ''),
+        )
+        .replaceAll(
+          '{{REFRESH_INTERVAL_MS}}',
+          String(config.dashboard?.refreshIntervalMs ?? 15000),
         );
       return htmlResponse(200, html);
     }
@@ -355,6 +360,13 @@ export function createAdmin({
         !csrfValid(session, request.headers['x-csrf-token'])
       ) {
         return adminError(403, 'Invalid CSRF token.');
+      }
+      const apiHandler = apiHandlers[pathname];
+      if (apiHandler) {
+        if (!['GET', 'HEAD'].includes(request.method)) {
+          return adminError(405, 'Method not allowed.');
+        }
+        return apiHandler({ request, url, session });
       }
       return adminError(404, 'Not found.');
     }

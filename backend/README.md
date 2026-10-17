@@ -152,7 +152,7 @@ Semantics:
 - Masking (PRD §8.2): with `MASK_SENDER` enabled (default), mainland mobile numbers keep the first three and last four digits (`13800138000` → `138****8000`); short service codes such as `10086` are untouched. `MASK_SENDER=false|0` returns raw senders, and the `mask` query parameter lets the authenticated admin UI override the default per request. The response's `masked` flag lets the UI show the active mode.
 - Retention: the log keeps at most `LOG_MAX_ENTRIES` entries and drops entries older than `LOG_MAX_AGE_MS` on append, on query and via the maintenance sweep; `0` disables the corresponding limit. Defaults: 1000 entries / 7 days.
 - A log append failure never fails the collection response; it is logged as `collect.log_failed`.
-- Admin authentication currently reuses `X-DCC-Token`; REQ-202610-1260 layers the dedicated admin access control on top.
+- These routes accept either the `X-DCC-Token` header (programmatic clients) or an authenticated admin session cookie (the log board and dashboard); anonymous callers receive the admin 401 envelope.
 
 Environment variables:
 
@@ -161,3 +161,60 @@ Environment variables:
 | `MASK_SENDER` | `true` | Mask sender phone numbers in log responses (`false|0` disables) |
 | `LOG_MAX_ENTRIES` | `1000` | Collection-log retention by count (0 = unlimited) |
 | `LOG_MAX_AGE_MS` | `604800000` | Collection-log retention by age (0 = unlimited) |
+
+## Clipboard latest API (REQ-202610-1256)
+
+`GET /api/v1/clipboard/latest` (PRD §4.1.2) returns the current clipboard record as `{ content, type, raw_text, source_device, platform, updated_at, expire_in_seconds }`. Authentication is header-only (`X-DCC-Token`); query-string tokens are rejected. TTL-expired or absent records return `404 No clipboard data available.` (defect 24). The response carries `ETag` / `Last-Modified` and supports `If-None-Match`, `If-Modified-Since` and `?updated_after=` for cheap conditional polling. Full contract: `docs/clipboard-api.md`.
+
+## Admin authentication (REQ-202610-1260)
+
+`/admin` and every `/api/admin/*` and management API prefix are protected by a server-side login session. Credentials come from `ADMIN_USERNAME` + `ADMIN_PASSWORD_HASH` (recommended, generate with `node scripts/hash-admin-password.js`) or the development fallback `ADMIN_PASSWORD`. Sessions use an `HttpOnly`, `SameSite=Strict` cookie with an absolute TTL; login failures are rate limited; state-changing admin requests require the session CSRF token. When no credentials are configured the whole admin surface fails closed. Full contract: `docs/admin-auth.md`.
+
+## Admin dashboard (REQ-202610-1261, PRD §4.2)
+
+The authenticated landing page `/admin` is the operations dashboard:
+
+- **Stat cards** — 今日采集短信 (`today_collected`), 解析提取验证码 (`today_extracted`) and 绑定设备 (`bound_devices`). Values come from the same `collection-log-store` aggregation as `GET /api/v1/stats`.
+- **Live clipboard card** — large-format latest content with `复制内容`, `手动刷新`, source device / platform, receive time, remaining TTL and the raw text in an expandable block. The data is produced by the same helper as `GET /api/v1/clipboard/latest`, so card fields match the public API exactly.
+- **Empty / expired states** — `clipboard_state: "empty"` means nothing has been written yet; `"expired"` means a previous record existed but its TTL elapsed. Expired content is never returned or re-displayed (defect 24); only the expiry timestamp is shown.
+- **Auto refresh** — the page polls every `DASHBOARD_REFRESH_INTERVAL_MS` (default 15s) while visible, pauses when the tab is hidden, refreshes immediately when it becomes visible again, and exposes a manual refresh button. The countdown ticks locally from `expire_in_seconds`.
+
+The page consumes a session-protected aggregate, `GET /api/admin/dashboard`, which requires the admin cookie and returns:
+
+```json
+{
+  "code": 200,
+  "message": "Dashboard data retrieved",
+  "data": {
+    "stats": { "date": "2026-10-17", "today_collected": 42, "today_extracted": 18, "bound_devices": 2 },
+    "clipboard": {
+      "content": "839201",
+      "type": "verification_code",
+      "raw_text": "【中国移动】您的验证码是：839201，5分钟内有效。",
+      "source_device": "小米 13Pro",
+      "platform": "android",
+      "updated_at": 1728950400000,
+      "expire_in_seconds": 1730
+    },
+    "clipboard_state": "active",
+    "clipboard_expired_at": null,
+    "refreshed_at": 1728950400000
+  }
+}
+```
+
+`clipboard` is `null` for the `empty` / `expired` states. The browser never receives `API_SECRET_TOKEN`; all dashboard reads use the admin session. `GET /api/v1/logs` and `GET /api/v1/stats` still accept `X-DCC-Token` for programmatic clients, and additionally accept the admin session for the future log board (REQ-202610-1262).
+
+Environment variables:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `DASHBOARD_REFRESH_INTERVAL_MS` | `15000` | Dashboard auto-refresh cadence |
+| `ADMIN_USERNAME` | `admin` | Admin login username |
+| `ADMIN_PASSWORD_HASH` | *(empty)* | scrypt hash, recommended for production |
+| `ADMIN_PASSWORD` | *(empty)* | Plaintext development fallback |
+| `ADMIN_SESSION_TTL_MS` | `28800000` | Absolute session lifetime (8h) |
+| `ADMIN_LOGIN_MAX_ATTEMPTS` | `5` | Failed logins before the limiter locks |
+| `ADMIN_LOGIN_WINDOW_MS` | `900000` | Login limiter window |
+| `ADMIN_MAX_SESSIONS` | `1000` | In-memory session cap |
+| `ADMIN_COOKIE_SECURE` | `auto` | `true` / `false` / `auto` Secure cookie policy |

@@ -212,3 +212,270 @@ h1 {
     padding-top: 32px;
   }
 }
+
+/* Dashboard (REQ-202610-1261, PRD §4.2) */
+.dashboard-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.refresh-status {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.btn-primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  border-color: #1d4ed8;
+  background: #1d4ed8;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  padding: 22px 24px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.stat-label {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.stat-value {
+  display: block;
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-hint {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.clipboard-card {
+  padding: 26px 28px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  margin-bottom: 24px;
+}
+
+.clipboard-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.clipboard-head .eyebrow {
+  margin-bottom: 6px;
+}
+
+.clipboard-head h2 {
+  margin: 0;
+  font-size: 20px;
+  letter-spacing: -0.01em;
+}
+
+.state-badge {
+  flex: none;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.state-badge[data-state="active"] {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.state-badge[data-state="expired"] {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.state-badge[data-state="empty"] {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.state-badge[data-state="error"] {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.clipboard-body {
+  display: flex;
+  align-items: center;
+  min-height: 148px;
+}
+
+.clipboard-content {
+  margin: 0;
+  max-width: 100%;
+  font-size: clamp(28px, 5vw, 44px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.clipboard-state {
+  width: 100%;
+  padding: 24px 12px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.clipboard-state h3 {
+  margin: 10px 0 6px;
+  color: var(--ink);
+  font-size: 17px;
+}
+
+.clipboard-state p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.state-icon {
+  color: var(--accent);
+  font-size: 30px;
+  line-height: 1;
+}
+
+.clipboard-state-error .state-icon {
+  color: #dc2626;
+}
+
+.clipboard-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.copy-feedback {
+  min-height: 1em;
+  color: #15803d;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.clipboard-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px 24px;
+  margin: 20px 0 0;
+  padding: 18px 0 0;
+  border-top: 1px dashed var(--line);
+}
+
+.clipboard-meta div {
+  min-width: 0;
+}
+
+.clipboard-meta dt {
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.clipboard-meta dd {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.raw-text {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--line);
+}
+
+.raw-text summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.raw-text pre {
+  max-height: 240px;
+  margin: 12px 0 0;
+  padding: 14px 16px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f8fafc;
+  font-size: 12px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@media (max-width: 640px) {
+  .dashboard-hero {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .stat-value {
+    font-size: 32px;
+  }
+
+  .clipboard-card {
+    padding: 20px;
+  }
+}
