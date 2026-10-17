@@ -2,9 +2,9 @@
 
 Kotlin Android SMS collection client for the Web Data Clipboard backend.
 
-This module currently contains the project skeleton and the connection configuration
-screen (REQ-202610-1263). The SMS receiver, foreground service, retry queue and release
-build flow are delivered by requirements 15–17 and plug into the seams described below.
+This module provides the Android SMS collection client, including SMS reception, a foreground
+collection service, OkHttp reporting, and a persistent WorkManager retry queue. Device-specific
+background-start behavior and real-device validation remain part of REQ-202610-1266.
 
 ## Requirements
 
@@ -40,7 +40,7 @@ The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`.
 | Server address | `server_url` | HTTPS only; HTTP is limited to `localhost`, `127.0.0.1`, `::1`, and `10.0.2.2`; a missing scheme becomes `https://`; trailing slash removed |
 | API Token | `api_token` | Sent as `X-DCC-Token`; must match backend `API_SECRET_TOKEN` |
 | Device name | `device_name` | Display name, 1–128 characters |
-| Service switch | `service_enabled` | Persists the user's intent; the foreground service is wired by REQ-202610-1265 |
+| Service switch | `service_enabled` | Persists whether background collection is enabled; the foreground service displays an ongoing low-importance notification |
 | SMS permission | Android runtime permission | `RECEIVE_SMS` check/request plus a system-settings fallback after permanent denial |
 
 `StorageHelper` stores the form in the `dcc_client_config` SharedPreferences file and
@@ -88,8 +88,15 @@ Invalid local configuration is reported before any network call, with per-field 
   for all app data (`data_extraction_rules.xml`).
 - `RECEIVE_SMS` is declared with `android.hardware.telephony` as not required so the app can
   still be installed on non-telephony devices.
-- No SMS content is written to disk by this module; the future receiver should hand messages
-  straight to the upload queue and clear it after a successful report.
+- Pending SMS reports are persisted in the bounded `dcc_pending_reports` queue until upload
+  succeeds; successful uploads immediately remove the payload. The queue is the only local
+  persistence of SMS content, and successful delivery leaves no queued `raw_content` or sender.
+- The receiver stores a report and schedules a uniquely named WorkManager job. Jobs require a
+  connected network and retry with manual exponential delays of 1, 2, 4, 8 seconds and onward,
+  capped at 300 seconds. Work input contains only the client message ID and attempt number, not
+  the SMS payload.
+- `DccForegroundService` keeps collection visible with an ongoing notification on a LOW-
+  importance channel. Android/OEM background-start and auto-start policies vary by device.
 
 ## Project layout
 
@@ -100,12 +107,39 @@ app/src/main/java/com/dcc/clipboard/
 │   ├── ClientConfig.kt             # persisted form model
 │   ├── ConfigValidator.kt          # pure URL/token/name validation
 │   └── StorageHelper.kt            # SharedPreferences persistence
-└── network/
-    ├── CollectRequestFactory.kt    # simulated collect payload
-    ├── CollectResponseParser.kt    # {code,message,data} envelope parser
-    ├── TestConnectionClient.kt     # blocking HTTP client (call off the main thread)
-    └── TestConnectionResult.kt     # success / rejected / network error
+├── network/
+│   ├── CollectRequestFactory.kt    # simulated collect payload
+│   ├── CollectResponseParser.kt    # {code,message,data} envelope parser
+│   ├── TestConnectionClient.kt     # connection check client
+│   └── TestConnectionResult.kt     # success / rejected / network error
+├── report/
+│   ├── SmsApiClient.kt             # OkHttp collect API client
+│   ├── PendingReportStore.kt       # persistent bounded SMS retry queue
+│   ├── ReportScheduler.kt          # unique connected-network work and backoff
+│   └── ReportRetryWorker.kt        # upload and queue cleanup worker
+├── service/
+│   └── DccForegroundService.kt     # ongoing collection notification
+└── sms/
+    └── SmsReceiver.kt              # SMS broadcast entry point
 ```
+
+## Background reporting and device acceptance
+
+SMS broadcasts are parsed and assembled by `SmsReceiver`, then enqueued locally before a unique
+WorkManager job is scheduled. `SmsApiClient` sends a POST to `/api/v1/collect` with the configured
+`X-DCC-Token` and JSON payload. Work runs only while a network is connected; failed attempts
+schedule a new work item with 1/2/4/8-second exponential delays, capped at 300 seconds. The
+foreground service shows “数据采集中心后台服务运行中…” with an ongoing notification on a LOW
+importance channel. On service startup, pending queue entries without active work are scheduled
+for recovery.
+
+Run `./gradlew :app:testDebugUnitTest` for automated coverage of queue persistence, retry
+attempt propagation, offline failure followed by successful delivery, and local payload cleanup.
+The Robolectric tests also verify the foreground notification and its channel. On a real device,
+verify SMS permission, enable collection, confirm the ongoing notification, send a test SMS, and
+check delivery after temporarily disconnecting and restoring network connectivity. Real-device
+and OEM background-start/auto-start verification cannot be performed here and is deferred to
+REQ-202610-1266.
 
 ## Tests
 
@@ -118,6 +152,10 @@ app/src/main/java/com/dcc/clipboard/
   401 error stream handling.
 - SharedPreferences round-trips and stable device id generation (Robolectric).
 - MainActivity save/echo behaviour and field-level validation (Robolectric).
+- OkHttp collect method/path, token header, JSON body and HTTP success/failure (MockWebServer).
+- Pending report deduplication, capacity, removal, clear and successful-delivery data cleanup.
+- WorkManager connected-network constraints, retry attempt progression/backoff, offline-to-online recovery and successful queue removal.
+- Foreground service notification text, ongoing state and LOW-importance channel.
 
 Kotlin formatting: four-space indentation, lines no longer than 120 columns, PascalCase
 types, camelCase members, and no wildcard imports.

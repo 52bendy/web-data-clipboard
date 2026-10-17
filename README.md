@@ -19,7 +19,7 @@ npm run lint
 ## 目录说明
 
 - `backend/`：后端 API、本地开发服务器及管理前端静态资源落点。
-- `android-client/`：Android Kotlin 采集端；Gradle 工程由后续子需求建设。
+- `android-client/`：Android Kotlin 短信采集端，包含配置界面、前台服务、OkHttp 上报与 WorkManager 持久重试队列。
 - `ios-scripts/`：iOS 快捷指令接入包与教程，由后续子需求建设。
 
 ## 技术决策与偏差记录
