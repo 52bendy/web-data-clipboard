@@ -150,7 +150,7 @@ test('an expired clipboard never leaks history and a fresh write starts over', a
   });
 });
 
-test('missing or wrong header tokens are 401; query-string tokens never authenticate', async () => {
+test('missing or wrong header tokens are 401; query-string tokens are always 400', async () => {
   const { clock, config, services } = createHarness();
   await seed(services);
 
@@ -165,7 +165,13 @@ test('missing or wrong header tokens are 401; query-string tokens never authenti
     const queryOnly = await fetch(
       `${base}/api/v1/clipboard/latest?token=${TOKEN}`,
     );
-    assert.equal(queryOnly.status, 401);
+    assert.equal(queryOnly.status, 400);
+    assert.deepEqual(await queryOnly.json(), {
+      code: 400,
+      message:
+        'Token must be sent in the X-DCC-Token header; query-string tokens are not supported.',
+      data: null,
+    });
 
     const queryWithHeader = await get(
       base,

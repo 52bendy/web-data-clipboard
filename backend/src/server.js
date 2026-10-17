@@ -6,6 +6,7 @@ import { createClipboardLatestHandler } from '../api/v1/clipboard-latest.js';
 import { authorize } from './middleware/auth.js';
 import { errorResponse } from './middleware/errors.js';
 import { isHttps } from './middleware/httpsEnforce.js';
+import { rejectQueryToken } from './middleware/queryToken.js';
 import { securityHeaders } from './middleware/securityHeaders.js';
 import { createServices } from './services/index.js';
 
@@ -25,6 +26,10 @@ export function createApp({ config = getConfig(), routes } = {}) {
         request.url,
         `http://${request.headers.host || 'localhost'}`,
       );
+      // Defect 21: reject token-like query parameters before routing or auth,
+      // so no endpoint (current or future) can silently accept them.
+      const queryTokenDenied = rejectQueryToken(url);
+      if (queryTokenDenied) return await send(response, queryTokenDenied);
       if (request.method === 'GET' && url.pathname === '/api/v1/health') {
         return await send(response, health());
       }

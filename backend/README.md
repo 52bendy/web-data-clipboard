@@ -33,9 +33,10 @@ Environment variables:
 `GET /api/v1/clipboard/latest` (PRD §4.1.2) returns the latest clipboard in the
 exact `{ code, data: { content, type, raw_text, source_device, platform,
 updated_at, expire_in_seconds } }` shape. Authentication is header-only
-(`X-DCC-Token`); query-string tokens are rejected with 400 (defect 21). An
-absent or TTL-expired clipboard returns 404 `No clipboard data available.`
-(defect 24); expired content is never served.
+(`X-DCC-Token`, or `Authorization: Bearer <token>`); any token-like query
+parameter is rejected with 400 before auth (defect 21). An absent or TTL-expired
+clipboard returns 404 `No clipboard data available.` (defect 24); expired
+content is never served.
 
 Polling is conditional: responses carry `ETag` / `Last-Modified`, and
 `If-None-Match`, `If-Modified-Since`, or `?updated_after=<epoch-ms|ISO-8601>`

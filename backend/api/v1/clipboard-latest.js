@@ -1,13 +1,11 @@
 import { getConfig } from '../../src/config.js';
 import { authorize } from '../../src/middleware/auth.js';
 import { errorResponse } from '../../src/middleware/errors.js';
+import { rejectQueryToken } from '../../src/middleware/queryToken.js';
 import { DEFAULT_TTL_MS } from '../../src/services/clipboard-store.js';
 
 /** Defect 24: an absent or TTL-expired clipboard is indistinguishable (404). */
 const NO_DATA_MESSAGE = 'No clipboard data available.';
-/** Defect 21: tokens in the query string are never accepted. */
-const QUERY_TOKEN_MESSAGE =
-  'Token must be sent in the X-DCC-Token header; query-string tokens are not supported.';
 
 /**
  * GET /api/v1/clipboard/latest (PRD §4.1.2).
@@ -48,9 +46,9 @@ export function createClipboardLatestHandler({
     }
     // Reject query-string tokens before anything else so a leaked URL can
     // never authenticate a read (defect 21). The header is the only channel.
-    if (parsedUrl.searchParams.has('token')) {
-      return errorResponse(400, QUERY_TOKEN_MESSAGE);
-    }
+    // createApp applies the same guard globally; this keeps direct mounts safe.
+    const queryTokenDenied = rejectQueryToken(parsedUrl);
+    if (queryTokenDenied) return queryTokenDenied;
     // Defense in depth: the route table already enforces auth: true, but the
     // handler also works when mounted directly (e.g. serverless adapters).
     const denied = authorize(request, config.apiSecretToken);

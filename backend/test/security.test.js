@@ -43,13 +43,15 @@ test('protected routes accept only a valid header token', async () => {
     routes: [{ method: 'GET', path: '/private', auth: true, handler: () => new Response('{"ok":true}') }],
   };
   await withServer(options, async (base) => {
-    for (const url of ['/private', '/private?token=a-secret-token']) {
-      const response = await fetch(`${base}${url}`);
-      assert.equal(response.status, 401);
-      assert.deepEqual(await response.json(), {
-        code: 401, message: 'Missing or invalid X-DCC-Token header.', data: null,
-      });
-    }
+    const missing = await fetch(`${base}/private`);
+    assert.equal(missing.status, 401);
+    assert.deepEqual(await missing.json(), {
+      code: 401, message: 'Missing or invalid X-DCC-Token header.', data: null,
+    });
+
+    const queryOnly = await fetch(`${base}/private?token=a-secret-token`);
+    assert.equal(queryOnly.status, 400);
+
     for (const token of ['', 'wrong', 'x'.repeat(4097)]) {
       const response = await fetch(`${base}/private`, { headers: { 'X-DCC-Token': token } });
       assert.equal(response.status, 401);
@@ -57,6 +59,12 @@ test('protected routes accept only a valid header token', async () => {
     const response = await fetch(`${base}/private`, { headers: { 'X-DCC-Token': 'a-secret-token' } });
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), { ok: true });
+
+    const bearer = await fetch(`${base}/private`, {
+      headers: { Authorization: 'Bearer a-secret-token' },
+    });
+    assert.equal(bearer.status, 200);
+    assert.deepEqual(await bearer.json(), { ok: true });
   });
 });
 

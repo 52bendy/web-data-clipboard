@@ -13,11 +13,13 @@ curl -i http://localhost:3000/api/v1/clipboard/latest \
   -H 'X-DCC-Token: <API_SECRET_TOKEN>'
 ```
 
-- Header-only. Query-string authentication is not supported: a request that
-  carries `?token=...` is never authenticated. With a valid header it is
-  rejected with `400` and
-  `Token must be sent in the X-DCC-Token header; query-string tokens are not supported.`;
-  a query token alone receives the normal `401` (defect 21).
+- Header-only. Credentials are never read from the query string: any
+  token-like parameter (`token`, `access_token`, `api_key`, `authorization`,
+  `secret`, ...) is rejected with `400` and
+  `Token must be sent in the X-DCC-Token header; query-string tokens are not supported.`
+  before authentication, whether or not a valid header is also present
+  (defect 21). `Authorization: Bearer <token>` is accepted as an alternative
+  header.
 - Missing, empty, wrong, or oversized tokens receive `401` with the shared
   error envelope. When `API_SECRET_TOKEN` is not configured the endpoint fails
   closed.
@@ -62,14 +64,14 @@ An absent clipboard and a TTL-expired clipboard are indistinguishable: both
 return `404` with the shared error envelope. Expired data is never served, and
 the history log is not exposed by this endpoint.
 
-| Status | Condition                        | Body                                                                                                                        |
-| ------ | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| 400    | `token` query parameter present  | `{"code":400,"message":"Token must be sent in the X-DCC-Token header; query-string tokens are not supported.","data":null}` |
-| 401    | missing / invalid `X-DCC-Token`  | `{"code":401,"message":"Missing or invalid X-DCC-Token header.","data":null}`                                               |
-| 403    | HTTPS required (`ENFORCE_HTTPS`) | `{"code":403,"message":"HTTPS is required.","data":null}`                                                                   |
-| 404    | clipboard absent or TTL-expired  | `{"code":404,"message":"No clipboard data available.","data":null}`                                                         |
-| 405    | method other than GET            | `{"code":405,"message":"Method not allowed.","data":null}`                                                                  |
-| 500    | unexpected failure               | `{"code":500,"message":"Internal server error.","data":null}`                                                               |
+| Status | Condition                          | Body                                                                                                                        |
+| ------ | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| 400    | token-like query parameter present | `{"code":400,"message":"Token must be sent in the X-DCC-Token header; query-string tokens are not supported.","data":null}` |
+| 401    | missing / invalid `X-DCC-Token`    | `{"code":401,"message":"Missing or invalid X-DCC-Token header.","data":null}`                                               |
+| 403    | HTTPS required (`ENFORCE_HTTPS`)   | `{"code":403,"message":"HTTPS is required.","data":null}`                                                                   |
+| 404    | clipboard absent or TTL-expired    | `{"code":404,"message":"No clipboard data available.","data":null}`                                                         |
+| 405    | method other than GET              | `{"code":405,"message":"Method not allowed.","data":null}`                                                                  |
+| 500    | unexpected failure                 | `{"code":500,"message":"Internal server error.","data":null}`                                                               |
 
 ## Polling without re-downloading unchanged data
 
