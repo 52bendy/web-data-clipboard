@@ -2,7 +2,7 @@
 
 Node.js ESM backend and management frontend host. The API routes follow a serverless-friendly layout; `src/server.js` provides the zero-dependency local development server.
 
-Run `npm install` at the repository root, then `npm run dev`. `GET /api/v1/health` and `POST /api/v1/collect` (below) are live; the clipboard, devices, and webhook routes are added by their respective requirements. Local environment variables are documented in `.env.example`.
+Run `npm install` at the repository root, then `npm run dev`. `GET /api/v1/health`, `POST /api/v1/collect`, `GET /api/v1/logs` and `GET /api/v1/stats` (below) are live; the clipboard, devices, and webhook routes are added by their respective requirements. Local environment variables are documented in `.env.example`.
 
 ## Clipboard storage service (REQ-202610-1255)
 
@@ -82,3 +82,82 @@ Environment variables:
 | `API_SECRET_TOKEN` | *(empty)* | Shared `X-DCC-Token` secret; empty ⇒ all collects rejected |
 | `MAX_RAW_CONTENT_LENGTH` | `4096` | `raw_content` character cap |
 | `MAX_BODY_BYTES` | `65536` | Request body cap |
+
+## Collection logs, statistics and masking (REQ-202610-1259)
+
+Every accepted collection is appended to a bounded collection log (`src/services/collection-log-store.js`). The admin log board and dashboard read the same store, so filtered lists and counters cannot drift apart.
+
+`GET /api/v1/logs` — paginated history, newest first. Requires `X-DCC-Token`.
+
+| Query | Default | Meaning |
+| --- | --- | --- |
+| `page` | `1` | 1-based page number |
+| `page_size` | `20` | Page size, 1–100 |
+| `device` | — | Case-insensitive substring of device id or name |
+| `device_id` | — | Exact device id |
+| `device_name` | — | Case-insensitive device-name substring |
+| `date` | — | Single local day, `YYYY-MM-DD` |
+| `from` / `to` | — | Inclusive local-day range, `YYYY-MM-DD` (mutually exclusive with `date`) |
+| `keyword` | — | Case-insensitive substring across sender, device, raw text, extracted code and collection id |
+| `mask` | server default | Per-request display override: `1`/`true` masks, `0`/`false` shows raw senders |
+
+```json
+{
+  "code": 200,
+  "message": "Logs retrieved",
+  "data": {
+    "items": [
+      {
+        "log_id": "log_…",
+        "collection_id": "col_…",
+        "device_id": "android_mi13_001",
+        "device_name": "小米 13Pro",
+        "platform": "android",
+        "sender": "138****8000",
+        "raw_content": "【中国移动】您的验证码是：839201，5分钟内有效。",
+        "extracted_code": "839201",
+        "data_type": "verification_code",
+        "status": "written",
+        "client_timestamp": 1728950400000,
+        "received_at": "2026-10-17T12:00:00.000Z"
+      }
+    ],
+    "page": 1,
+    "page_size": 20,
+    "total": 1,
+    "total_pages": 1,
+    "masked": true
+  }
+}
+```
+
+`GET /api/v1/stats` — dashboard counters, also requiring `X-DCC-Token`:
+
+```json
+{
+  "code": 200,
+  "message": "Statistics retrieved",
+  "data": {
+    "date": "2026-10-17",
+    "today_collected": 42,
+    "today_extracted": 18,
+    "bound_devices": 2
+  }
+}
+```
+
+Semantics:
+
+- `today_collected` counts log entries received during the server-local day; `today_extracted` counts those whose `extracted_code` is non-null; `bound_devices` is the number of distinct `device_id` values in the retained log.
+- Masking (PRD §8.2): with `MASK_SENDER` enabled (default), mainland mobile numbers keep the first three and last four digits (`13800138000` → `138****8000`); short service codes such as `10086` are untouched. `MASK_SENDER=false|0` returns raw senders, and the `mask` query parameter lets the authenticated admin UI override the default per request. The response's `masked` flag lets the UI show the active mode.
+- Retention: the log keeps at most `LOG_MAX_ENTRIES` entries and drops entries older than `LOG_MAX_AGE_MS` on append, on query and via the maintenance sweep; `0` disables the corresponding limit. Defaults: 1000 entries / 7 days.
+- A log append failure never fails the collection response; it is logged as `collect.log_failed`.
+- Admin authentication currently reuses `X-DCC-Token`; REQ-202610-1260 layers the dedicated admin access control on top.
+
+Environment variables:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `MASK_SENDER` | `true` | Mask sender phone numbers in log responses (`false|0` disables) |
+| `LOG_MAX_ENTRIES` | `1000` | Collection-log retention by count (0 = unlimited) |
+| `LOG_MAX_AGE_MS` | `604800000` | Collection-log retention by age (0 = unlimited) |

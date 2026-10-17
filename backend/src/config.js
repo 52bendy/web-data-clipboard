@@ -3,6 +3,10 @@ import {
   DEFAULT_HISTORY_MAX_ENTRIES,
   DEFAULT_TTL_MS,
 } from './services/clipboard-store.js';
+import {
+  DEFAULT_LOG_MAX_AGE_MS,
+  DEFAULT_LOG_MAX_ENTRIES,
+} from './services/collection-log-store.js';
 
 const DEFAULT_PORT = 3000;
 const DEFAULT_MAINTENANCE_INTERVAL_MS = 60 * 1000;
@@ -31,6 +35,9 @@ export function getConfig(env = process.env) {
     // 「自动提取」开关（PRD §4.2）：缺省开启，AUTO_EXTRACT=false|0 关闭；
     // 后续后台设置面板（REQ-202610-1262）接入后可覆盖该缺省值。
     autoExtract: env.AUTO_EXTRACT !== 'false' && env.AUTO_EXTRACT !== '0',
+    // 「脱敏模式」（PRD §8.2）：缺省开启，MASK_SENDER=false|0 关闭。
+    // 后台设置面板（REQ-202610-1262）接入后可覆盖该缺省值。
+    maskSender: env.MASK_SENDER !== 'false' && env.MASK_SENDER !== '0',
     storage: {
       // Only "memory" is implemented until the runtime selection lands
       // (REQ-202610-1251); business layers stay unchanged when it changes.
@@ -62,6 +69,11 @@ export function getConfig(env = process.env) {
       ),
       // Request body cap in bytes; larger bodies are rejected 413.
       maxBodyBytes: positiveInt(env.MAX_BODY_BYTES, DEFAULT_MAX_BODY_BYTES),
+    },
+    logs: {
+      // Collection-log retention; bounded so the log never grows forever.
+      maxEntries: nonNegativeInt(env.LOG_MAX_ENTRIES, DEFAULT_LOG_MAX_ENTRIES),
+      maxAgeMs: nonNegativeInt(env.LOG_MAX_AGE_MS, DEFAULT_LOG_MAX_AGE_MS),
     },
   };
 }

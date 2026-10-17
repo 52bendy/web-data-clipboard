@@ -34,7 +34,10 @@ export function newCollectionId(
  */
 export function validateCollectPayload(
   body,
-  { maxRawContentLength = DEFAULT_MAX_RAW_CONTENT_LENGTH, now = Date.now() } = {},
+  {
+    maxRawContentLength = DEFAULT_MAX_RAW_CONTENT_LENGTH,
+    now = Date.now(),
+  } = {},
 ) {
   if (body === null || typeof body !== 'object' || Array.isArray(body)) {
     return { ok: false, message: 'request body must be a JSON object.' };
@@ -116,12 +119,14 @@ export function validateCollectPayload(
 /**
  * @param {object} deps
  * @param {{ write: Function }} deps.clipboardStore REQ-202610-1255 store.
+ * @param {{ append: Function }} [deps.collectionLogStore] REQ-202610-1259 log store.
  * @param {(text: string) => { extracted_code: string | null, type: string }} deps.extract
  * @param {(record: object, context: object) => Promise<unknown>} [deps.dispatch]
  * @param {object} [deps.logger]
  */
 export function createCollectService({
   clipboardStore,
+  collectionLogStore = null,
   extract,
   dispatch = async () => ({ dispatched: 0 }),
   logger = null,
@@ -159,6 +164,32 @@ export function createCollectService({
       },
     });
     log('collect.clipboard_updated', { clipboard_id: record.clipboard_id });
+
+    // Append to the admin log store (REQ-202610-1259). A log failure must not
+    // fail the device report or lose the clipboard update, so it is contained.
+    if (collectionLogStore) {
+      try {
+        const logRecord = await collectionLogStore.append({
+          collection_id: collectionId,
+          device_id: payload.device_id,
+          device_name: payload.device_name,
+          platform: payload.platform,
+          sender: payload.sender,
+          raw_content: payload.raw_content,
+          extracted_code: extraction.extracted_code,
+          data_type: extraction.type,
+          status: 'written',
+          client_timestamp: payload.timestamp,
+          received_at: record.updated_at,
+        });
+        log('collect.logged', { log_id: logRecord.log_id });
+      } catch (error) {
+        logger?.error('collect.log_failed', {
+          collection_id: collectionId,
+          error: String(error),
+        });
+      }
+    }
 
     // Fire-and-forget (§4.1.1 step 4): downstream delivery must neither block
     // nor fail the device report; the dispatcher records its own failures.

@@ -1,9 +1,11 @@
 import { createStorage } from './storage/index.js';
 import { createClipboardStore } from './clipboard-store.js';
+import { createCollectionLogStore } from './collection-log-store.js';
 
 /**
  * Builds the backend service graph from configuration. HTTP routes consume
- * these services as they land (collect / clipboard / devices / webhooks).
+ * these services as they land (collect / clipboard / devices / webhooks /
+ * logs).
  */
 export function createServices({ config = {}, now = Date.now } = {}) {
   const storage = createStorage({
@@ -18,5 +20,12 @@ export function createServices({ config = {}, now = Date.now } = {}) {
     historyMaxAgeMs: clipboardConfig.historyMaxAgeMs,
     now,
   });
-  return { storage, clipboardStore };
+  const logConfig = config.logs ?? {};
+  const collectionLogStore = createCollectionLogStore({
+    storage,
+    maxEntries: logConfig.maxEntries,
+    maxAgeMs: logConfig.maxAgeMs,
+    now,
+  });
+  return { storage, clipboardStore, collectionLogStore };
 }
