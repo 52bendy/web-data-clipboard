@@ -2,7 +2,29 @@
 
 REQ-202610-1260 implements the defect-20 fix: the management backend denies
 anonymous access by default, including every admin page and every management
-API (devices / webhooks / logs / stats / settings).
+API (devices / webhooks / logs / stats / settings). REQ-202610-1269 closes the
+defect by adding the deployment requirement and the dedicated regression
+matrix below.
+
+## Deployment requirement: the admin surface must remain private
+
+The admin dashboard can read SMS plaintext, rotate the server token and edit
+webhooks, so it must never be reachable by the general public. Treat `/admin`,
+`/admin/*`, `/api/admin/*` and the management API prefixes as private
+infrastructure:
+
+- Keep the built-in login guard enabled. It fails closed when credentials are
+  missing; do not add a bypass, and do not serve `backend/public/admin` from a
+  separate public static host.
+- Deploy behind HTTPS with `ADMIN_USERNAME` and `ADMIN_PASSWORD_HASH` set.
+  Before going live, verify that anonymous `GET /admin` redirects to
+  `/admin/login` and that anonymous `GET /api/v1/devices` returns `401`.
+- A platform-level control (VPN, IP allowlist, reverse-proxy basic auth or a
+  private preview domain) is optional defence in depth, never a replacement
+  for the application guard.
+- This release ships **no public read-only admin view**. If one is ever
+  required, build a separate endpoint with an explicit field allowlist and
+  sender masking; never expose `/admin` or `/api/admin/*` anonymously.
 
 ## Decision: server-side login session
 
@@ -109,3 +131,9 @@ success and cookie attributes, wrong-password generic responses, login
 rate-limit lockout and recovery, session expiry, CSRF on logout, fail-closed
 configuration, scrypt hash authentication, secure cookies behind HTTPS, path
 traversal, security headers and method restrictions.
+
+`backend/test/admin-defect-20.test.js` is the defect-20 regression suite: it
+walks every file under `backend/public/admin` (except the login assets) and
+asserts anonymous access is denied, covers the sensitive dashboard pages
+(dashboard / devices / logs / settings) and management APIs, and proves that a
+newly added admin asset is private by default through an isolated static root.

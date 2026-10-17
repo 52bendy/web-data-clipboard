@@ -27,7 +27,8 @@ ADMIN_USERNAME=admin ADMIN_PASSWORD_HASH='scrypt$...' npm run dev
 ```
 
 未配置凭据时后台 fail closed；管理 API（devices / webhooks / logs / stats / settings）
-统一要求登录态。详见 [backend/docs/admin-auth.md](backend/docs/admin-auth.md)。
+统一要求登录态。**生产部署必须保持后台私有（仅管理员可达）**；本服务不提供公开只读后台页面。
+详见 [backend/docs/admin-auth.md](backend/docs/admin-auth.md) 的部署要求章节。
 
 ## 目录说明
 

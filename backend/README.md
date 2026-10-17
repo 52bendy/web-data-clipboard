@@ -24,5 +24,8 @@ Management API prefixes (`/api/v1/devices`, `/api/v1/webhooks`, `/api/v1/logs`,
 `/api/v1/stats`, `/api/v1/settings`) require the admin session even before
 their routes are implemented.
 
-See [docs/admin-auth.md](docs/admin-auth.md) for the full contract, environment
-variables, CSRF handling and deployment-layer guidance.
+The admin surface **must remain private in production**: it exposes SMS
+plaintext, token rotation and webhook configuration, and this release provides
+no public read-only view. See [docs/admin-auth.md](docs/admin-auth.md) for the
+full contract, environment variables, CSRF handling and the deployment
+requirement.
