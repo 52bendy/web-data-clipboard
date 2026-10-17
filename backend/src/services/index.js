@@ -2,6 +2,7 @@ import { createStorage } from './storage/index.js';
 import { createClipboardStore } from './clipboard-store.js';
 import { createCollectionLogStore } from './collection-log-store.js';
 import { createDeviceRegistry } from './device-registry.js';
+import { createSettingsStore } from './settings-store.js';
 
 /**
  * Builds the backend service graph from configuration. HTTP routes consume
@@ -29,5 +30,12 @@ export function createServices({ config = {}, now = Date.now } = {}) {
     maxAgeMs: logConfig.maxAgeMs,
     now,
   });
-  return { storage, clipboardStore, deviceRegistry, collectionLogStore };
+  const settingsStore = createSettingsStore({ storage, config, now });
+  return {
+    storage,
+    clipboardStore,
+    deviceRegistry,
+    collectionLogStore,
+    settingsStore,
+  };
 }

@@ -15,13 +15,16 @@ export function createStatsHandler({
   config = getConfig(),
   services,
   logger = null,
+  requireToken = true,
 } = {}) {
   return async function handleStats(request) {
     if (request.method !== 'GET') {
       return errorResponse(405);
     }
-    const denied = authorize(request, config.apiSecretToken);
-    if (denied) return denied;
+    if (requireToken) {
+      const denied = authorize(request, config.apiSecretToken);
+      if (denied) return denied;
+    }
 
     try {
       const stats = await services.collectionLogStore.getStats();

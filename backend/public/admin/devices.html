@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="csrf-token" content="{{CSRF_TOKEN}}" />
+    <title>设备列表 · 网络剪切板</title>
+    <link rel="stylesheet" href="/admin/admin.css" />
+  </head>
+  <body class="admin-page">
+    <header class="topbar">
+      <a class="brand" href="/admin">
+        <span class="brand-mark" aria-hidden="true">DCC</span>
+        <span class="brand-name">网络剪切板 · 管理后台</span>
+      </a>
+      <nav class="topnav" aria-label="后台导航">
+        <a href="/admin">概览</a>
+        <a class="active" href="/admin/devices">设备</a>
+        <a href="/admin/logs">日志</a>
+        <a href="/admin/settings">设置</a>
+      </nav>
+      <div class="session">
+        <span class="session-user">{{USERNAME}}</span>
+        <form method="post" action="/admin/logout">
+          <input type="hidden" name="_csrf" value="{{CSRF_TOKEN}}" />
+          <button class="btn btn-ghost" type="submit">退出登录</button>
+        </form>
+      </div>
+    </header>
+
+    <main class="shell">
+      <section class="hero hero-row">
+        <div>
+          <p class="eyebrow">Devices</p>
+          <h1>设备列表</h1>
+          <p class="muted">
+            展示设备 ID、名称、平台与最后上报时间；超过在线阈值的设备高亮为离线。
+          </p>
+        </div>
+        <button class="btn btn-primary" id="refresh" type="button">刷新</button>
+      </section>
+
+      <section class="stat-grid" aria-label="设备统计">
+        <article class="stat-card">
+          <span class="stat-label">设备总数</span>
+          <strong class="stat-value" id="stat-total">—</strong>
+        </article>
+        <article class="stat-card">
+          <span class="stat-label">在线</span>
+          <strong class="stat-value stat-online" id="stat-online">—</strong>
+        </article>
+        <article class="stat-card">
+          <span class="stat-label">离线</span>
+          <strong class="stat-value stat-offline" id="stat-offline">—</strong>
+        </article>
+      </section>
+
+      <section class="panel">
+        <div class="toolbar">
+          <label class="field field-inline">
+            <span>搜索</span>
+            <input id="filter" type="search" placeholder="设备 ID 或名称" autocomplete="off" />
+          </label>
+          <span class="muted small" id="threshold"></span>
+        </div>
+        <p class="alert" id="message" hidden></p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>设备 ID</th>
+                <th>名称</th>
+                <th>平台</th>
+                <th>最后上报</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody id="device-rows"></tbody>
+          </table>
+        </div>
+        <p class="empty" id="empty" hidden>暂无设备上报记录。</p>
+      </section>
+    </main>
+
+    <script src="/admin/app.js"></script>
+    <script src="/admin/devices.js"></script>
+  </body>
+</html>

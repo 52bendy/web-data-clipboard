@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="csrf-token" content="{{CSRF_TOKEN}}" />
+    <title>设置 · 网络剪切板</title>
+    <link rel="stylesheet" href="/admin/admin.css" />
+  </head>
+  <body class="admin-page">
+    <header class="topbar">
+      <a class="brand" href="/admin">
+        <span class="brand-mark" aria-hidden="true">DCC</span>
+        <span class="brand-name">网络剪切板 · 管理后台</span>
+      </a>
+      <nav class="topnav" aria-label="后台导航">
+        <a href="/admin">概览</a>
+        <a href="/admin/devices">设备</a>
+        <a href="/admin/logs">日志</a>
+        <a class="active" href="/admin/settings">设置</a>
+      </nav>
+      <div class="session">
+        <span class="session-user">{{USERNAME}}</span>
+        <form method="post" action="/admin/logout">
+          <input type="hidden" name="_csrf" value="{{CSRF_TOKEN}}" />
+          <button class="btn btn-ghost" type="submit">退出登录</button>
+        </form>
+      </div>
+    </header>
+
+    <main class="shell">
+      <section class="hero">
+        <p class="eyebrow">Settings</p>
+        <h1>设置面板</h1>
+        <p class="muted">
+          管理自动提取、脱敏模式与 Webhook URL，并可重置服务端 Token。
+          设置保存后立即对采集与日志接口生效。
+        </p>
+      </section>
+
+      <section class="panel">
+        <h2 class="panel-title">采集与隐私</h2>
+        <p class="alert" id="message" hidden></p>
+        <form id="settings-form" class="form-grid">
+          <label class="switch-row">
+            <span>
+              <strong>自动提取验证码</strong>
+              <small class="muted block">关闭后仅保存短信原文，不做验证码识别。</small>
+            </span>
+            <input id="auto-extract" type="checkbox" />
+          </label>
+          <label class="switch-row">
+            <span>
+              <strong>脱敏模式</strong>
+              <small class="muted block">日志与后台展示时隐藏发送人手机号中段。</small>
+            </span>
+            <input id="mask-sender" type="checkbox" />
+          </label>
+          <label class="field">
+            <span>Webhook URL</span>
+            <input id="webhook-url" type="url" placeholder="https://example.com/hooks/dcc" />
+            <small class="muted">仅支持 https，保存后供下游转发配置使用；留空表示不配置。</small>
+          </label>
+          <div class="form-actions">
+            <button class="btn btn-primary" type="submit">保存设置</button>
+            <span class="muted small" id="updated-at"></span>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h2 class="panel-title">服务端 Token</h2>
+        <p class="muted">
+          当前 Token：<code id="token-masked" class="mono">—</code>
+        </p>
+        <p class="muted small">
+          重置后旧 Token 立即失效，所有设备需更新为新 Token。操作不可撤销。
+        </p>
+        <button class="btn btn-danger" id="open-reset" type="button">重置 Token</button>
+
+        <div class="token-result" id="token-result" hidden>
+          <p class="alert alert-warning">
+            新 Token 仅显示这一次，请立即复制并妥善保存。
+          </p>
+          <div class="token-row">
+            <code id="new-token" class="mono token-value"></code>
+            <button class="btn" id="copy-token" type="button">复制</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div class="modal" id="reset-modal" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="reset-title">
+        <h2 id="reset-title">确认重置 Token</h2>
+        <p class="muted">
+          重置会使旧 Token 立即失效，正在上报的设备将收到 401。请输入
+          <strong>RESET</strong> 确认。
+        </p>
+        <label class="field">
+          <span>确认文本</span>
+          <input id="reset-confirm" type="text" autocomplete="off" placeholder="RESET" />
+        </label>
+        <p class="alert alert-error" id="reset-error" hidden></p>
+        <div class="form-actions">
+          <button class="btn" id="cancel-reset" type="button">取消</button>
+          <button class="btn btn-danger" id="confirm-reset" type="button">确认重置</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="/admin/app.js"></script>
+    <script src="/admin/settings.js"></script>
+  </body>
+</html>

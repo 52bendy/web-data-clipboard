@@ -134,6 +134,17 @@ export function createAdmin({
     return Boolean(supplied) && safeEqualText(session.csrfToken, supplied);
   }
 
+  /**
+   * CSRF guard shared by the admin page routes and the admin API route table
+   * (REQ-202610-1262). Safe methods pass through; mutating requests must echo
+   * the session-bound token in `X-CSRF-Token`.
+   */
+  function checkCsrf(request, session) {
+    if (['GET', 'HEAD'].includes(request.method)) return null;
+    if (csrfValid(session, request.headers['x-csrf-token'])) return null;
+    return adminError(403, 'Invalid CSRF token.');
+  }
+
   function rateLimited(retryAfterSeconds, json) {
     const headers = { 'retry-after': String(Math.max(1, retryAfterSeconds)) };
     if (json) {
@@ -350,13 +361,11 @@ export function createAdmin({
     if (isAdminApi) {
       const session = authenticate(request);
       if (!session) return unauthorized();
-      if (
-        !['GET', 'HEAD'].includes(request.method) &&
-        !csrfValid(session, request.headers['x-csrf-token'])
-      ) {
-        return adminError(403, 'Invalid CSRF token.');
-      }
-      return adminError(404, 'Not found.');
+      const csrfError = checkCsrf(request, session);
+      if (csrfError) return csrfError;
+      // Unknown admin APIs fall through to the shared route table so the
+      // admin management handlers (REQ-202610-1262) can be registered there.
+      return null;
     }
 
     const publicLoginAsset = pathname === '/admin/login.css';
@@ -391,6 +400,7 @@ export function createAdmin({
     enabled,
     sessionStore,
     limiter,
+    checkCsrf,
     cookieName: ADMIN_COOKIE_NAME,
   };
 }

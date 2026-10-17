@@ -431,7 +431,9 @@ test('management API prefixes reject even a valid X-DCC-Token', async () => {
       const adminResponse = await fetch(`${base}/api/v1/devices`, {
         headers: { cookie },
       });
-      assert.equal(adminResponse.status, 404);
+      // REQ-202610-1262 registers the real devices route; the authenticated
+      // admin session now reaches it instead of the former placeholder 404.
+      assert.equal(adminResponse.status, 200);
     },
   );
 });

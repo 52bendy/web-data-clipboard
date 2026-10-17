@@ -207,10 +207,6 @@ export function createCollectService({
         });
       }
     }
-          error: String(error),
-        });
-      }
-    }
 
     // Fire-and-forget (§4.1.1 step 4): downstream delivery must neither block
     // nor fail the device report; the dispatcher records its own failures.

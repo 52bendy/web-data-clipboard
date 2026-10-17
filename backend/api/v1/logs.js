@@ -59,13 +59,16 @@ export function createLogsHandler({
   config = getConfig(),
   services,
   logger = null,
+  requireToken = true,
 } = {}) {
   return async function handleLogs(request) {
     if (request.method !== 'GET') {
       return errorResponse(405);
     }
-    const denied = authorize(request, config.apiSecretToken);
-    if (denied) return denied;
+    if (requireToken) {
+      const denied = authorize(request, config.apiSecretToken);
+      if (denied) return denied;
+    }
 
     const url = new URL(request.url, 'http://localhost');
     const params = url.searchParams;

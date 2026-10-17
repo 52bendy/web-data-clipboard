@@ -6,6 +6,10 @@ import { createCollectHandler } from '../api/v1/collect.js';
 import { createLogsHandler } from '../api/v1/logs.js';
 import { createStatsHandler } from '../api/v1/stats.js';
 import { createDevicesHandler } from '../api/v1/devices.js';
+import {
+  createAdminDevicesHandler,
+  createAdminSettingsHandlers,
+} from '../api/admin/management.js';
 import { createAdmin, isManagementApiPath } from './admin/index.js';
 import { createServices } from './services/index.js';
 import { authorize } from './middleware/auth.js';
@@ -26,7 +30,6 @@ import { createLogger } from './utils/logger.js';
  */
 export function createApp({
   config = getConfig(),
-  services = createServices({ config }),
   routes = [],
   logger = createLogger(),
   adminOptions,
@@ -37,7 +40,14 @@ export function createApp({
     try {
       const https = isHttps(request, config.trustProxy === true);
       for (const [name, value] of Object.entries(
-        securityHeaders(config, https),
+        securityHeaders(
+          {
+            contentSecurityPolicy:
+              config.contentSecurityPolicy || "default-src 'self'",
+            hstsMaxAge: config.hstsMaxAge ?? 31536000,
+          },
+          https,
+        ),
       )) {
         response.setHeader(name, value);
       }
@@ -58,19 +68,34 @@ export function createApp({
         return await send(response, health());
       }
 
-      const route = routes.find(
-        (item) => item.method === request.method && matches(item, url.pathname),
-      );
+      const pathRoutes = routes.filter((item) => matches(item, url.pathname));
+      const route = pathRoutes.find((item) => item.method === request.method);
+
+      // Known path with an unsupported method gets 405 rather than 404/401.
+      if (!route && pathRoutes.length > 0) {
+        return await send(response, errorResponse(405));
+      }
+
       if (route) {
+        const managementApi = isManagementApiPath(url.pathname);
+        const session =
+          route.admin || managementApi ? admin.authenticate(request) : null;
         if (route.admin) {
-          const session = admin.authenticate(request);
           if (!session) return await send(response, admin.unauthorized());
           const csrfError = admin.checkCsrf(request, session);
           if (csrfError) return await send(response, csrfError);
         }
         if (route.auth) {
-          const denied = authorize(request, config.apiSecretToken);
-          if (denied) return await send(response, denied);
+          // Management APIs (devices / logs / stats / webhooks / settings)
+          // move to the admin session once admin credentials are configured
+          // (REQ-202610-1260). Before that they stay usable with X-DCC-Token
+          // so deployments without a management UI keep working.
+          if (managementApi && admin.enabled) {
+            if (!session) return await send(response, admin.unauthorized());
+          } else if (!session) {
+            const denied = authorize(request, config.apiSecretToken);
+            if (denied) return await send(response, denied);
+          }
         }
         return await send(response, await route.handler(request, url));
       }
@@ -84,10 +109,6 @@ export function createApp({
         return await send(response, errorResponse(404));
       }
 
-      // Known path with an unsupported method gets 405 rather than 404.
-      if (routes.some((item) => matches(item, url.pathname))) {
-        return await send(response, errorResponse(405));
-      }
       return await send(response, errorResponse(404));
     } catch (error) {
       logger.error('request.failed', {
@@ -115,12 +136,24 @@ async function send(response, result) {
 /** Registers every backend route that has landed so far. */
 export function buildRoutes({ config, services, logger }) {
   const collect = createCollectHandler({ config, services, logger });
-  const logs = createLogsHandler({ config, services, logger });
-  const stats = createStatsHandler({ config, services, logger });
+  const logs = createLogsHandler({
+    config,
+    services,
+    logger,
+    requireToken: false,
+  });
+  const stats = createStatsHandler({
+    config,
+    services,
+    logger,
+    requireToken: false,
+  });
   const devices = createDevicesHandler({
     deviceRegistry: services.deviceRegistry,
     config,
   });
+  const adminDevices = createAdminDevicesHandler({ services, config });
+  const settings = createAdminSettingsHandlers({ services, logger });
   return [
     {
       method: 'POST',
@@ -128,9 +161,20 @@ export function buildRoutes({ config, services, logger }) {
       auth: false,
       handler: rateLimit({ config })(collect),
     },
-    { method: 'GET', path: '/api/v1/logs', auth: false, handler: logs },
-    { method: 'GET', path: '/api/v1/stats', auth: false, handler: stats },
+    { method: 'GET', path: '/api/v1/logs', auth: true, handler: logs },
+    { method: 'GET', path: '/api/v1/stats', auth: true, handler: stats },
     { method: 'GET', path: '/api/v1/devices', auth: true, handler: devices },
+    { method: 'GET', path: '/api/admin/devices', admin: true, handler: adminDevices },
+    { method: 'GET', path: '/api/admin/logs', admin: true, handler: logs },
+    { method: 'GET', path: '/api/admin/stats', admin: true, handler: stats },
+    { method: 'GET', path: '/api/admin/settings', admin: true, handler: settings.get },
+    { method: 'PATCH', path: '/api/admin/settings', admin: true, handler: settings.update },
+    {
+      method: 'POST',
+      path: '/api/admin/token/reset',
+      admin: true,
+      handler: settings.resetToken,
+    },
   ];
 }
 
@@ -165,7 +209,6 @@ export function createServer({
   const server = createHttpServer(
     createApp({
       config,
-      services: appServices,
       routes: appRoutes,
       logger,
       adminOptions,

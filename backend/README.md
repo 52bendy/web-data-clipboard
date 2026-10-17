@@ -27,9 +27,11 @@ their routes are implemented.
 See [docs/admin-auth.md](docs/admin-auth.md) for the full contract, environment
 variables, CSRF handling and deployment-layer guidance.
 
-Run `npm install` at the repository root, then `npm run dev`. `GET /api/v1/health`, `POST /api/v1/collect`, `GET /api/v1/logs` and `GET /api/v1/stats` (below) are live; the clipboard, devices, and webhook routes are added by their respective requirements. Local environment variables are documented in `.env.example`.
-
-Run `npm install` at the repository root, then `npm run dev`. `GET /api/v1/health`, `POST /api/v1/collect`, and `GET /api/v1/devices` are live; the clipboard and webhook routes are added by their respective requirements. Local environment variables are documented in `.env.example`.
+Run `npm install` at the repository root, then `npm run dev`. `GET /api/v1/health`,
+`POST /api/v1/collect`, `GET /api/v1/logs`, `GET /api/v1/stats` and
+`GET /api/v1/devices` are live; the clipboard and webhook routes are added by
+their respective requirements. Local environment variables are documented in
+`.env.example`.
 
 ## Clipboard storage service (REQ-202610-1255)
 
@@ -74,7 +76,7 @@ Success envelope:
 }
 ```
 
-Missing or invalid credentials return 401; non-GET methods return 405, using the shared `{ code, message, data: null }` error envelope. The admin device list in REQ-202610-1262 should consume this contract; no admin page is included here, so UI integration remains for that requirement.
+Missing or invalid credentials return 401; non-GET methods return 405, using the shared `{ code, message, data: null }` error envelope. The admin device list (REQ-202610-1262) consumes the same registry through `GET /api/admin/devices` and is rendered at `/admin/devices`.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
@@ -86,7 +88,7 @@ Missing or invalid credentials return 401; non-GET methods return 405, using the
 
 - Returns `{ extracted_code, type }`, where `type` is `verification_code` or `text`.
 - Rules: 4–8 digit candidates (contiguous, or single-space separated groups) are scored by proximity to context keywords (验证码 / 校验码 / 动态码 / code / OTP …); order numbers, amounts, dates, alphanumeric tokens and over-long digit runs are excluded. Candidates below the score threshold are not extracted.
-- Toggle: `options.autoExtract: false` makes the function return the text-only result; `AUTO_EXTRACT=false|0` flips the default in `src/config.js` until the admin settings panel (REQ-202610-1262) takes over.
+- Toggle: `options.autoExtract: false` makes the function return the text-only result; `AUTO_EXTRACT=false|0` sets the initial default in `src/config.js`, and the admin settings panel (REQ-202610-1262) can override it at runtime.
 - Sample set: `test/fixtures/code-samples.js` (20+ positive, 20+ negative), all covered by `npm test`.
 
 ## Collection API (REQ-202610-1253)
@@ -204,7 +206,7 @@ Semantics:
 - Masking (PRD §8.2): with `MASK_SENDER` enabled (default), mainland mobile numbers keep the first three and last four digits (`13800138000` → `138****8000`); short service codes such as `10086` are untouched. `MASK_SENDER=false|0` returns raw senders, and the `mask` query parameter lets the authenticated admin UI override the default per request. The response's `masked` flag lets the UI show the active mode.
 - Retention: the log keeps at most `LOG_MAX_ENTRIES` entries and drops entries older than `LOG_MAX_AGE_MS` on append, on query and via the maintenance sweep; `0` disables the corresponding limit. Defaults: 1000 entries / 7 days.
 - A log append failure never fails the collection response; it is logged as `collect.log_failed`.
-- Admin authentication currently reuses `X-DCC-Token`; REQ-202610-1260 layers the dedicated admin access control on top.
+- Authentication: when admin credentials are configured, `/api/v1/logs` and `/api/v1/stats` require the admin session (REQ-202610-1260). Deployments without an admin account can still use `X-DCC-Token`. The admin UI reads `/api/admin/logs` and `/api/admin/stats`, which always require a session.
 
 Environment variables:
 
@@ -213,3 +215,51 @@ Environment variables:
 | `MASK_SENDER` | `true` | Mask sender phone numbers in log responses (`false|0` disables) |
 | `LOG_MAX_ENTRIES` | `1000` | Collection-log retention by count (0 = unlimited) |
 | `LOG_MAX_AGE_MS` | `604800000` | Collection-log retention by age (0 = unlimited) |
+
+## Admin devices, logs and settings (REQ-202610-1262)
+
+The zero-build admin UI lives in `public/admin/` and is served by the admin
+router after session authentication:
+
+| Page | Module |
+| --- | --- |
+| `/admin/devices` | Device list: ID, name, platform, last report time and online/offline highlighting; searchable and refreshed every 15 seconds. |
+| `/admin/logs` | Log board: device/date/keyword filters, pagination, page size, optional raw sender display. |
+| `/admin/settings` | Settings panel: auto-extract toggle, masking toggle, Webhook URL, masked Token display and Token reset. |
+
+All three pages use `public/admin/app.js`, which attaches the session CSRF
+header to state-changing requests and redirects expired sessions to the login
+page. No bundler or runtime dependency is required.
+
+Admin API (session cookie required; mutating requests also require
+`X-CSRF-Token`):
+
+| Method and path | Purpose |
+| --- | --- |
+| `GET /api/admin/devices` | Device list plus `total` / `online` / `offline` counters. |
+| `GET /api/admin/logs` | Same filters and pagination as `GET /api/v1/logs`. |
+| `GET /api/admin/stats` | Dashboard counters. |
+| `GET /api/admin/settings` | Current settings; the Token is returned masked only. |
+| `PATCH /api/admin/settings` | Update `auto_extract`, `mask_sender` and/or `webhook_url`. |
+| `POST /api/admin/token/reset` | Rotate the server Token. Requires `{"confirm":true}`; the new Token is returned exactly once. |
+
+Settings semantics:
+
+- Values persist in the storage adapter under `admin:settings` and are hydrated
+  at startup, so they survive a restart when the storage driver does.
+- Updates mutate the live config immediately: `auto_extract` affects the next
+  collection, `mask_sender` affects log responses, and the rotated Token
+  invalidates the old `X-DCC-Token` at once.
+- `webhook_url` accepts an empty value or an `https:` URL up to 2048 characters;
+  loopback, localhost and private IPv4 targets are rejected. This requirement
+  stores the configuration only — delivery is implemented by REQ-202610-1258.
+- The Token reset endpoint is a server-side second confirmation in addition to
+  the UI dialog (typing `RESET`), and logs only a masked form of the new Token.
+
+Environment variables:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `AUTO_EXTRACT` | `true` | Initial auto-extract value (`false|0` disables). |
+| `MASK_SENDER` | `true` | Initial masking value. |
+| `DEVICE_ONLINE_THRESHOLD_MS` | `86400000` | Online window used by the device list. |
