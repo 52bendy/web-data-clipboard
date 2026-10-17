@@ -6,7 +6,6 @@ import { createClipboardLatestHandler } from '../api/v1/clipboard-latest.js';
 import { authorize } from './middleware/auth.js';
 import { errorResponse } from './middleware/errors.js';
 import { isHttps } from './middleware/httpsEnforce.js';
-import { rateLimit } from './middleware/rateLimit.js';
 import { securityHeaders } from './middleware/securityHeaders.js';
 import { createServices } from './services/index.js';
 
@@ -62,9 +61,7 @@ export function createServer({
       method: 'GET',
       path: '/api/v1/clipboard/latest',
       auth: true,
-      handler: rateLimit({ config })(
-        createClipboardLatestHandler({ config, services, now }),
-      ),
+      handler: createClipboardLatestHandler({ config, services, now }),
     },
   ];
 

@@ -13,17 +13,14 @@ curl -i http://localhost:3000/api/v1/clipboard/latest \
   -H 'X-DCC-Token: <API_SECRET_TOKEN>'
 ```
 
-- Header-only. Query-string authentication is not supported and is rejected:
-  any request carrying `?token=...` receives `400` with
-  `Token must be sent in the X-DCC-Token header; query-string tokens are not supported.`
-  even when a valid header is also present (defect 21).
+- Header-only. Query-string authentication is not supported: a request that
+  carries `?token=...` is never authenticated. With a valid header it is
+  rejected with `400` and
+  `Token must be sent in the X-DCC-Token header; query-string tokens are not supported.`;
+  a query token alone receives the normal `401` (defect 21).
 - Missing, empty, wrong, or oversized tokens receive `401` with the shared
   error envelope. When `API_SECRET_TOKEN` is not configured the endpoint fails
   closed.
-- The route is also covered by the shared rate limiter (default 30
-  requests/minute per token and per client IP; configure with
-  `RATE_LIMIT_PER_MINUTE` / `RATE_LIMIT_WINDOW_SECONDS`). Exceeding it returns
-  `429` with `Retry-After`.
 
 ## Success response (200)
 
@@ -72,7 +69,6 @@ the history log is not exposed by this endpoint.
 | 403    | HTTPS required (`ENFORCE_HTTPS`) | `{"code":403,"message":"HTTPS is required.","data":null}`                                                                   |
 | 404    | clipboard absent or TTL-expired  | `{"code":404,"message":"No clipboard data available.","data":null}`                                                         |
 | 405    | method other than GET            | `{"code":405,"message":"Method not allowed.","data":null}`                                                                  |
-| 429    | rate limit exceeded              | `{"code":429,"message":"Too many requests.","data":null}`                                                                   |
 | 500    | unexpected failure               | `{"code":500,"message":"Internal server error.","data":null}`                                                               |
 
 ## Polling without re-downloading unchanged data

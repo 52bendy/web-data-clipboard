@@ -30,7 +30,7 @@ function baseConfig(overrides = {}) {
   };
 }
 
-function createHarness({ ttlMs = 1_800_000, rateLimit } = {}) {
+function createHarness({ ttlMs = 1_800_000 } = {}) {
   const clock = createClock();
   const config = baseConfig({
     clipboard: {
@@ -38,7 +38,6 @@ function createHarness({ ttlMs = 1_800_000, rateLimit } = {}) {
       ttlMs,
       maintenanceIntervalMs: 3_600_000,
     },
-    ...(rateLimit ? { rateLimitEnabled: true, ...rateLimit } : {}),
   });
   const services = createServices({ config, now: clock.now });
   return { clock, config, services };
@@ -256,24 +255,6 @@ test('unsupported methods return the shared 405 envelope', async () => {
     assert.deepEqual(await response.json(), {
       code: 405,
       message: 'Method not allowed.',
-      data: null,
-    });
-  });
-});
-
-test('the default route is wired to the shared rate limiter', async () => {
-  const { clock, config, services } = createHarness({
-    rateLimit: { rateLimitPerMinute: 1, rateLimitWindowSeconds: 60 },
-  });
-  await seed(services);
-
-  await withServer({ config, services, now: clock.now }, async (base) => {
-    assert.equal((await get(base)).status, 200);
-    const limited = await get(base);
-    assert.equal(limited.status, 429);
-    assert.deepEqual(await limited.json(), {
-      code: 429,
-      message: 'Too many requests.',
       data: null,
     });
   });
