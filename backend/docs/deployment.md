@@ -6,12 +6,12 @@ This service targets Vercel Serverless Functions on Node.js 20.x, with the Verce
 
 ## Storage
 
-The target production store is Upstash Redis REST: it is accessed over HTTP, works without a persistent Node process, and supports expiring keys, offers a free tier, and keeps the storage access HTTP-based for future migration. The current A3 worktree still defaults to `memory`; set `STORAGE_DRIVER=upstash`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, and optionally `STORAGE_KEY_PREFIX` only after the A2 adapter is merged into this branch and present in the deployed revision. Until then, Upstash configuration is preparatory only. Keep `memory` for local development and tests; it is not durable or shared across serverless instances. Vercel KV is a possible managed alternative, while D1 or Supabase could be evaluated as a future persistence enhancement; neither is configured by this deployment task.
+The target production store is Upstash Redis REST: it is accessed over HTTP, works without a persistent Node process, and supports expiring keys, offers a free tier, and keeps the storage access HTTP-based for future migration. Select it with `STORAGE_DRIVER=upstash` and configure `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, and optionally `STORAGE_KEY_PREFIX`. Keep `memory` for local development and tests; it is not durable or shared across serverless instances. Vercel KV is a possible managed alternative, while D1 or Supabase could be evaluated as a future persistence enhancement; neither is configured by this deployment task.
 
 ## First Vercel deployment
 
 1. Import the repository into Vercel and set the project Root Directory to `backend`.
-2. This A3-only branch does not yet include the A2 Upstash adapter, so keep `STORAGE_DRIVER=memory` for now. After the A2 adapter is merged, create an Upstash Redis database and configure `STORAGE_DRIVER=upstash`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, and `STORAGE_KEY_PREFIX` in Vercel Project Settings → Environment Variables for Production (and Preview if needed). Never commit real values.
+2. Create an Upstash Redis database and configure `STORAGE_DRIVER=upstash`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, and `STORAGE_KEY_PREFIX` in Vercel Project Settings → Environment Variables for Production (and Preview if needed). Never commit real values.
 3. Deploy from Vercel. Check the deployment at `https://<domain>/api/v1/health`; it should return HTTP 200 and `{"status":"ok"}`. The repository helper can check a deployed URL with `node scripts/health-check.js https://<domain>/api/v1/health` from the `backend` directory.
 
 ## GitHub Actions
