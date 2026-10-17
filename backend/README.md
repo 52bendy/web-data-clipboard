@@ -31,3 +31,5 @@ Environment variables:
 | `CLIPBOARD_HISTORY_MAX_ENTRIES` | `500` | History retention by count (0 = unlimited) |
 | `CLIPBOARD_HISTORY_TTL_MS` | `86400000` | History retention by age (0 = unlimited) |
 | `CLIPBOARD_MAINTENANCE_INTERVAL_MS` | `60000` | Expiry sweep interval of the dev server |
+
+The complete environment-variable inventory (including planned security settings) is in [`.env.example`](.env.example); see the [deployment guide](docs/deployment.md) for supported deployment configuration and limitations.

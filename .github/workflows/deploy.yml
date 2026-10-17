@@ -1,0 +1,100 @@
+name: Deploy to Vercel
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vercel-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      configured: ${{ steps.secrets.outputs.configured }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Test
+        run: npm test
+      - name: Check Vercel secrets
+        id: secrets
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        shell: bash
+        run: |
+          missing=()
+          [[ -n "$VERCEL_TOKEN" ]] || missing+=(VERCEL_TOKEN)
+          [[ -n "$VERCEL_ORG_ID" ]] || missing+=(VERCEL_ORG_ID)
+          [[ -n "$VERCEL_PROJECT_ID" ]] || missing+=(VERCEL_PROJECT_ID)
+          if (( ${#missing[@]} )); then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            printf 'Deployment skipped — REQ-202610-1251 requires Vercel deployment only when all credentials are configured. Missing GitHub Actions secret(s): `%s`. Validation (install, lint, tests) completed; deployment was intentionally skipped.\n' "${missing[*]}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo 'All required Vercel secrets are configured.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Install Vercel CLI
+        if: steps.secrets.outputs.configured == 'true'
+        run: npm install --global vercel@latest
+      - name: Pull Vercel production settings
+        if: steps.secrets.outputs.configured == 'true'
+        working-directory: backend
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+      - name: Build Vercel production deployment
+        if: steps.secrets.outputs.configured == 'true'
+        working-directory: backend
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel build --prod --token="$VERCEL_TOKEN"
+      - name: Deploy Vercel production build
+        if: steps.secrets.outputs.configured == 'true'
+        id: deploy
+        working-directory: backend
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        shell: bash
+        run: |
+          url="$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN")"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Deployment URL: $url" >> "$GITHUB_STEP_SUMMARY"
+      - name: Verify deployed health endpoint
+        if: steps.secrets.outputs.configured == 'true'
+        working-directory: backend
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
+        shell: bash
+        run: |
+          for attempt in {1..6}; do
+            if node scripts/health-check.js "${DEPLOYMENT_URL%/}/api/v1/health"; then
+              exit 0
+            fi
+            if (( attempt < 6 )); then sleep 10; fi
+          done
+          echo 'Health check failed after 6 attempts.' >> "$GITHUB_STEP_SUMMARY"
+          exit 1
