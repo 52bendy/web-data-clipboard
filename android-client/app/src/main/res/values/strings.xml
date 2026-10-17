@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">网络剪切板</string>
+    <string name="app_title">网络剪切板</string>
+    <string name="app_subtitle">短信采集端 · 连接配置</string>
+
+    <string name="section_server">服务器与身份</string>
+    <string name="hint_server_url">服务器地址</string>
+    <string name="helper_server_url">例如 https://dcc.example.com</string>
+    <string name="hint_api_token">API Token</string>
+    <string name="helper_api_token">需与后端 API_SECRET_TOKEN 一致</string>
+    <string name="hint_device_name">设备名称</string>
+    <string name="helper_device_name">用于在管理后台识别这台设备</string>
+
+    <string name="section_permission">短信权限</string>
+    <string name="permission_status_granted">短信权限：已授权</string>
+    <string name="permission_status_denied">短信权限：未授权</string>
+    <string name="permission_explanation">需要「接收短信」权限才能自动上报验证码短信。应用只上传短信内容，不在本地长期保留。</string>
+    <string name="permission_request_button">申请短信权限</string>
+    <string name="permission_open_settings_button">前往系统设置</string>
+    <string name="permission_granted_button">权限已授予</string>
+    <string name="permission_granted_message">短信权限已授予</string>
+    <string name="permission_denied_message">未获得短信权限，采集功能不可用</string>
+    <string name="permission_settings_message">请在系统设置中允许「接收短信」</string>
+
+    <string name="section_service">采集服务</string>
+    <string name="service_switch_title">后台采集服务</string>
+    <string name="service_switch_description">开启后，收到短信时将自动上报到服务器。</string>
+    <string name="service_status_enabled">已开启</string>
+    <string name="service_status_disabled">已关闭</string>
+    <string name="service_switch_saved">服务开关已保存</string>
+    <string name="service_switch_content_description">后台采集服务开关</string>
+
+    <string name="save_button">保存配置</string>
+    <string name="save_success">配置已保存</string>
+
+    <string name="test_button">测试连接</string>
+    <string name="test_button_testing">正在测试…</string>
+    <string name="test_invalid_config">请先修正配置项后再测试连接</string>
+    <string name="test_result_success_title">连接成功</string>
+    <string name="test_result_success_detail">服务器已接受测试数据。\ncollection_id：%1$s\n提取到的验证码：%2$s</string>
+    <string name="test_result_success_no_code">服务器已接受测试数据（collection_id：%1$s），但未提取到验证码。</string>
+    <string name="test_result_failure_title">连接失败</string>
+    <string name="test_result_http_error">HTTP %1$d：%2$s</string>
+    <string name="test_result_network_error">网络错误：%1$s</string>
+    <string name="test_result_network_error_generic">无法连接服务器，请检查地址与网络</string>
+    <string name="http_error_400">请求被拒绝，请检查服务器地址与 Token</string>
+    <string name="http_error_401">Token 无效或未配置</string>
+    <string name="http_error_403">服务器拒绝访问（可能要求 HTTPS）</string>
+    <string name="http_error_404">接口不存在，请检查服务器地址</string>
+    <string name="http_error_413">测试数据超出服务器限制</string>
+    <string name="http_error_429">请求过于频繁，请稍后再试</string>
+    <string name="http_error_5xx">服务器内部错误，请稍后再试</string>
+    <string name="http_error_unknown">服务器返回异常状态</string>
+
+    <string name="error_server_url_empty">请填写服务器地址</string>
+    <string name="error_server_url_invalid">服务器地址格式不正确</string>
+    <string name="error_api_token_empty">请填写 API Token</string>
+    <string name="error_api_token_too_long">API Token 过长</string>
+    <string name="error_device_name_empty">请填写设备名称</string>
+    <string name="error_device_name_too_long">设备名称不能超过 128 个字符</string>
+
+    <string name="device_id_format">设备 ID：%1$s</string>
+    <string name="default_device_name_fallback">Android 设备</string>
+</resources>

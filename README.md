@@ -19,8 +19,23 @@ npm run lint
 ## 目录说明
 
 - `backend/`：后端 API、剪贴板存储服务、本地开发服务器及管理前端静态资源落点。
-- `android-client/`：Android Kotlin 采集端；Gradle 工程由后续子需求建设。
+- `android-client/`：Android Kotlin 采集端（Gradle 工程与配置界面已落地，构建方式见其 README）。
 - `ios-scripts/`：iOS 快捷指令接入包与教程，由后续子需求建设。
+
+### Android 客户端
+
+`android-client/` 使用 Kotlin + Gradle Kotlin DSL，`minSdk 24`、`compileSdk 34`。需要 JDK 17
+与 Android SDK 34，构建命令：
+
+```sh
+cd android-client
+./gradlew :app:assembleDebug
+./gradlew :app:testDebugUnitTest
+./gradlew :app:lintDebug
+```
+
+配置界面支持服务器地址、API Token、设备名称、短信权限检查/申请、服务开关与测试连接；
+测试连接会向 `POST /api/v1/collect` 发送模拟数据并展示成功、鉴权失败或网络错误结果。
 
 ## 技术决策与偏差记录
 

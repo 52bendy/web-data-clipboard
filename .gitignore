@@ -8,4 +8,10 @@ coverage/
 .gradle/
 build/
 local.properties
+.idea/
 *.iml
+*.apk
+*.aab
+captures/
+.externalNativeBuild/
+.cxx/
