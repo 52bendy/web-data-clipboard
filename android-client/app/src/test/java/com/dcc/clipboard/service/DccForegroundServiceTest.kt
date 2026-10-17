@@ -3,6 +3,7 @@ package com.dcc.clipboard.service
 import android.app.NotificationManager
 import android.content.Intent
 import androidx.test.core.app.ApplicationProvider
+import androidx.work.testing.WorkManagerTestInitHelper
 import com.dcc.clipboard.MainActivity
 import com.dcc.clipboard.R
 import org.junit.Assert.assertEquals
@@ -20,6 +21,9 @@ import org.robolectric.annotation.Config
 class DccForegroundServiceTest {
     @Test
     fun `service posts low importance ongoing notification and is sticky`() {
+        WorkManagerTestInitHelper.initializeTestWorkManager(
+            ApplicationProvider.getApplicationContext(),
+        )
         val controller = Robolectric.buildService(DccForegroundService::class.java).create()
         val service = controller.get()
         controller.startCommand(0, 1)

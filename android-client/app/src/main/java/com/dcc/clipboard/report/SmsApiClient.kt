@@ -1,9 +1,17 @@
 package com.dcc.clipboard.report
 
 import android.util.Log
+import com.dcc.clipboard.data.ConfigValidator
 import com.dcc.clipboard.data.StorageHelper
-import java.net.HttpURLConnection
-import java.net.URL
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
+import java.io.IOException
+import java.util.concurrent.TimeUnit
 
 data class UploadResult(
     val success: Boolean,
@@ -11,55 +19,77 @@ data class UploadResult(
     val detail: String,
 )
 
-/**
- * Minimal blocking HTTP client used by the receiver worker. Timeouts are kept
- * short because a broadcast receiver only has ~10 seconds before the system
- * considers it unresponsive; REQ-202610-1265 replaces this with a foreground
- * service and a WorkManager-backed retry queue.
- */
-class SmsApiClient(private val storage: StorageHelper) {
-
-    fun upload(payload: SmsPayload): UploadResult {
+class SmsApiClient(
+    private val storage: StorageHelper,
+    private val client: OkHttpClient = defaultClient,
+) {
+    fun execute(payload: SmsPayload): UploadResult {
         val config = storage.loadConfig()
-        if (!com.dcc.clipboard.data.ConfigValidator.validate(
-                config.serverUrl,
-                config.apiToken,
-                config.deviceName,
-            ).isValid
-        ) {
+        if (!ConfigValidator.validate(config.serverUrl, config.apiToken, config.deviceName).isValid) {
             return UploadResult(false, 0, "configuration incomplete")
         }
-        var connection: HttpURLConnection? = null
+        val request = buildRequest(payload, config.serverUrl, config.apiToken)
         return try {
-            val endpoint = URL("${config.serverUrl}/api/v1/collect")
-            connection = (endpoint.openConnection() as HttpURLConnection).apply {
-                requestMethod = "POST"
-                connectTimeout = CONNECT_TIMEOUT_MILLIS
-                readTimeout = READ_TIMEOUT_MILLIS
-                doOutput = true
-                setRequestProperty("Content-Type", "application/json; charset=utf-8")
-                setRequestProperty("X-DCC-Token", config.apiToken)
+            client.newCall(request).execute().use { response ->
+                UploadResult(
+                    success = response.isSuccessful,
+                    statusCode = response.code,
+                    detail = if (response.isSuccessful) "ok" else "HTTP ${response.code}",
+                )
             }
-            val body = payload.toJson().toString().toByteArray(Charsets.UTF_8)
-            connection.setFixedLengthStreamingMode(body.size)
-            connection.outputStream.use { output -> output.write(body) }
-
-            val status = connection.responseCode
-            val stream = if (status in 200..299) connection.inputStream else connection.errorStream
-            val response = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
-            UploadResult(status in 200..299, status, response.take(MAX_DETAIL_LENGTH))
+        } catch (error: IOException) {
+            Log.w(TAG, "sms.upload_failed type=${error.javaClass.simpleName}")
+            UploadResult(false, 0, "network error")
         } catch (error: Exception) {
-            Log.w(TAG, "sms.upload_failed", error)
-            UploadResult(false, 0, error.message ?: error.javaClass.simpleName)
-        } finally {
-            connection?.disconnect()
+            Log.w(TAG, "sms.upload_failed type=${error.javaClass.simpleName}")
+            UploadResult(false, 0, "upload failed")
         }
     }
 
-    private companion object {
-        const val TAG = "DccSmsApiClient"
-        const val CONNECT_TIMEOUT_MILLIS = 4_000
-        const val READ_TIMEOUT_MILLIS = 4_000
-        const val MAX_DETAIL_LENGTH = 300
+    fun enqueue(payload: SmsPayload, callback: (UploadResult) -> Unit): Call? {
+        val config = storage.loadConfig()
+        if (!ConfigValidator.validate(config.serverUrl, config.apiToken, config.deviceName).isValid) {
+            callback(UploadResult(false, 0, "configuration incomplete"))
+            return null
+        }
+        val request = buildRequest(payload, config.serverUrl, config.apiToken)
+        return client.newCall(request).also { call ->
+            call.enqueue(object : Callback {
+                override fun onFailure(call: Call, e: IOException) {
+                    Log.w(TAG, "sms.upload_failed type=${e.javaClass.simpleName}")
+                    callback(UploadResult(false, 0, "network error"))
+                }
+
+                override fun onResponse(call: Call, response: Response) {
+                    response.use {
+                        callback(
+                            UploadResult(
+                                success = response.isSuccessful,
+                                statusCode = response.code,
+                                detail = if (response.isSuccessful) "ok" else "HTTP ${response.code}",
+                            ),
+                        )
+                    }
+                }
+            })
+        }
+    }
+
+    private fun buildRequest(payload: SmsPayload, serverUrl: String, apiToken: String): Request =
+        Request.Builder()
+            .url("$serverUrl/api/v1/collect")
+            .header("X-DCC-Token", apiToken)
+            .header("Content-Type", "application/json; charset=utf-8")
+            .post(payload.toJson().toString().toRequestBody(JSON_MEDIA_TYPE))
+            .build()
+
+    companion object {
+        private const val TAG = "DccSmsApiClient"
+        private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
+        val defaultClient: OkHttpClient = OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(10, TimeUnit.SECONDS)
+            .writeTimeout(10, TimeUnit.SECONDS)
+            .build()
     }
 }

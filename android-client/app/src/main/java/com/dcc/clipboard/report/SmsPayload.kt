@@ -27,4 +27,16 @@ data class SmsPayload(
         put("timestamp", timestamp)
         put("client_message_id", clientMessageId)
     }
+
+    companion object {
+        fun fromJson(json: JSONObject) = SmsPayload(
+            deviceId = json.getString("device_id"),
+            deviceName = json.getString("device_name"),
+            platform = json.optString("platform", "android"),
+            sender = json.getString("sender"),
+            rawContent = json.getString("raw_content"),
+            timestamp = json.getLong("timestamp"),
+            clientMessageId = json.getString("client_message_id"),
+        )
+    }
 }

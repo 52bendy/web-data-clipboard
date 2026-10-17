@@ -95,10 +95,9 @@ class SmsReceiver : BroadcastReceiver() {
         val result = SmsReportDispatcher.report(context, message, fingerprint)
         Log.i(
             TAG,
-            "sms.report_finished success=${result.success}" +
-                " status=${result.statusCode}" +
+            "sms.report_queued success=${result.detail == "queued"}" +
                 " fingerprint=${fingerprint.take(12)}" +
-                " detail=${result.detail.take(160)}",
+                " detail=${result.detail.take(80)}",
         )
     }
 

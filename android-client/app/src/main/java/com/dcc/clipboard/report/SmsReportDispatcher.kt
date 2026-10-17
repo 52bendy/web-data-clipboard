@@ -37,20 +37,12 @@ object SmsReportDispatcher {
         )
         Log.i(
             TAG,
-            "sms.report_triggered device=${config.deviceName}" +
+            "sms.report_queued device=${config.deviceName}" +
                 " fingerprint=${fingerprint.take(12)}" +
                 " length=${message.body.length}",
         )
-
-        val result = SmsApiClient(storage).upload(payload)
-        if (!result.success) {
-            PendingReportStore(context).enqueue(payload)
-            Log.w(
-                TAG,
-                "sms.report_queued fingerprint=${fingerprint.take(12)}" +
-                    " status=${result.statusCode}",
-            )
-        }
-        return result
+        PendingReportStore(context).enqueue(payload)
+        ReportScheduler(context).schedule(payload.clientMessageId)
+        return UploadResult(false, 0, "queued")
     }
 }

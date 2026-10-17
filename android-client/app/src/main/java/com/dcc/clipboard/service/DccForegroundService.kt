@@ -11,10 +11,12 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.dcc.clipboard.MainActivity
 import com.dcc.clipboard.R
+import com.dcc.clipboard.report.ReportScheduler
 
 class DccForegroundService : Service() {
     override fun onCreate() {
         super.onCreate()
+        ReportScheduler(this).schedulePending(this)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
