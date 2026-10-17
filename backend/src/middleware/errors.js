@@ -3,6 +3,8 @@ const messages = {
   401: 'Missing or invalid X-DCC-Token header.',
   403: 'HTTPS is required.',
   404: 'Not found.',
+  405: 'Method not allowed.',
+  413: 'Request body is too large.',
   429: 'Too many requests.',
   500: 'Internal server error.',
 };
