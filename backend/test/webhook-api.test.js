@@ -220,7 +220,7 @@ test('the test endpoint performs a real signed delivery and records it', async (
       .update(`${sent.headers['x-dcc-timestamp']}.${sent.body}`)
       .digest('hex');
     assert.equal(sent.headers['x-dcc-signature'], `sha256=${expected}`);
-    assert.match(JSON.parse(sent.body).message, /DCC/);
+    assert.match(JSON.parse(sent.body).message, /收到新验证码/);
 
     status = 503;
     const failed = await (
@@ -284,7 +284,8 @@ test('an accepted collection triggers the configured webhook asynchronously', as
     assert.equal(payload.collection_id, collected.data.collection_id);
     assert.equal(payload.data.parsed_code, '839201');
     assert.equal(payload.data.source.device_name, '小米 13Pro');
-    assert.match(payload.message, /发件人：\+8610086/);
+    assert.equal(payload.sender, '+8610086');
+    assert.match(payload.message, /原始短信：/);
     const expected = createHmac('sha256', created.data.secret)
       .update(`${sent.headers['x-dcc-timestamp']}.${sent.body}`)
       .digest('hex');

@@ -79,14 +79,14 @@ async function setup({ config = {}, send, sleep = async () => {} } = {}) {
   return { store, webhook, logger, calls, forwarder };
 }
 
-test('formats the §7.2.2 message template with sender and code', () => {
-  const message = formatWebhookMessage(record, context);
-  assert.match(message, /【DCC 新短信】/);
-  assert.match(message, /设备：小米 13Pro（android）/);
-  assert.match(message, /发件人：\+8610086/);
+test('formats the §7.2.2 message template with code and device', () => {
+  const message = formatWebhookMessage(record);
+  assert.match(message, /📱 收到新验证码/);
+  assert.match(message, /-------------------/);
   assert.match(message, /验证码：839201/);
-  assert.match(message, /内容：/);
-  assert.match(message, /时间：2026-10-17T02:00:00.000Z/);
+  assert.match(message, /来源设备：小米 13Pro/);
+  assert.match(message, /原始短信：/);
+  assert.ok(message.includes('\n\n\n原始短信：'));
 
   const payload = buildWebhookPayload(record, context, {
     deliveryId: 'dlv_x',
@@ -95,6 +95,7 @@ test('formats the §7.2.2 message template with sender and code', () => {
   assert.equal(payload.event, 'clipboard.updated');
   assert.equal(payload.delivery_id, 'dlv_x');
   assert.equal(payload.collection_id, 'col_123');
+  assert.equal(payload.sender, '+8610086');
   assert.equal(payload.data.parsed_code, '839201');
   assert.equal(payload.data.source.device_name, '小米 13Pro');
   assert.equal(payload.message, message);
@@ -130,7 +131,8 @@ test('delivers a signed payload and records success', async () => {
 
   const payload = JSON.parse(sent.body);
   assert.equal(payload.data.parsed_code, '839201');
-  assert.equal(payload.message.includes('发件人：+8610086'), true);
+  assert.equal(payload.sender, '+8610086');
+  assert.match(payload.message, /原始短信：/);
 
   const [stored] = await store.listDeliveries();
   assert.equal(stored.delivery_id, delivery.delivery_id);

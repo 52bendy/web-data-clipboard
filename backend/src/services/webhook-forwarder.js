@@ -19,17 +19,20 @@ const DEFAULT_RETRY_BASE_DELAY_MS = 1000;
 const MAX_RESPONSE_EXCERPT = 512;
 export const WEBHOOK_EVENT = 'clipboard.updated';
 
-/** §7.2.2-style human-readable message template for chat consumers. */
-export function formatWebhookMessage(record, context = {}) {
+/** §7.2.2 human-readable message template for chat consumers. */
+export function formatWebhookMessage(record) {
   const source = record.source ?? {};
   const lines = [
-    '【DCC 新短信】',
-    `设备：${source.device_name || 'unknown'}（${source.platform || 'unknown'}）`,
+    record.parsed_code ? '📱 收到新验证码' : '📱 收到新消息',
+    '-------------------',
   ];
-  if (context.sender) lines.push(`发件人：${context.sender}`);
-  lines.push(`验证码：${record.parsed_code ?? '无'}`);
-  lines.push(`内容：${record.full_text}`);
-  lines.push(`时间：${record.updated_at}`);
+  if (record.parsed_code) lines.push(`验证码：${record.parsed_code}`);
+  lines.push(
+    `来源设备：${source.device_name || 'unknown'}`,
+    '',
+    '',
+    `原始短信：${record.full_text}`,
+  );
   return lines.join('\n');
 }
 
@@ -42,6 +45,7 @@ export function buildWebhookPayload(
     event: WEBHOOK_EVENT,
     delivery_id: deliveryId,
     collection_id: context.collection_id ?? null,
+    sender: context.sender || null,
     created_at: new Date(nowMs).toISOString(),
     data: {
       clipboard_id: record.clipboard_id,
@@ -51,7 +55,7 @@ export function buildWebhookPayload(
       updated_at: record.updated_at,
       source: record.source,
     },
-    message: formatWebhookMessage(record, context),
+    message: formatWebhookMessage(record),
   };
 }
 

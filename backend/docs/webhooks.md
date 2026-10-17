@@ -63,6 +63,7 @@ X-DCC-Signature: sha256=<hex>
   "event": "clipboard.updated",
   "delivery_id": "dlv_…",
   "collection_id": "col_…",
+  "sender": "+8610086",
   "created_at": "2026-10-17T02:00:00.000Z",
   "data": {
     "clipboard_id": "…",
@@ -72,11 +73,11 @@ X-DCC-Signature: sha256=<hex>
     "updated_at": "2026-10-17T02:00:00.000Z",
     "source": { "device_name": "小米 13Pro", "platform": "android" }
   },
-  "message": "【DCC 新短信】\n设备：小米 13Pro（android）\n发件人：+8610086\n验证码：839201\n内容：…\n时间：…"
+  "message": "📱 收到新验证码\n-------------------\n验证码：839201\n来源设备：小米 13Pro\n\n\n原始短信：【中国移动】您的验证码是：839201，5分钟内有效。"
 }
 ```
 
-`message` 是 §7.2.2 风格的可读文本，可直接转发到 Telegram / 钉钉 / 飞书的自建中转；结构化消费者使用 `data`。`sender` 仅出现在 `message` 中（它不在 §7.1 剪贴板记录结构里）。
+`message` 严格按 PRD §7.2.2 模板生成，可直接转发到 Telegram / 钉钉 / 飞书的自建中转；结构化消费者使用 `data`。`sender` 作为顶层字段提供（它不在 §7.1 剪贴板记录结构里）；未解析出验证码时标题为 `📱 收到新消息` 且省略验证码行。
 
 ## 3. HMAC 签名校验
 
