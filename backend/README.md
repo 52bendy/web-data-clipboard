@@ -4,6 +4,10 @@ Node.js ESM backend and management frontend host. The API routes follow a server
 
 Run `npm install` at the repository root, then `npm run dev`. The initial `GET /api/v1/health` route returns JSON. Collection, clipboard, devices, and webhook routes are added by their respective requirements.
 
+## Runtime entry points (REQ-202610-1251)
+
+The backend shares its request handler between the local `node src/server.js` development server and the Vercel Node Function at `api/index.js`. `vercel.json` rewrites all paths to that function, preserving the original request path for routing. Check a running backend with `node scripts/health-check.js [url]`; the URL defaults to `http://localhost:3000/api/v1/health`.
+
 ## Clipboard storage service (REQ-202610-1255)
 
 `src/services/` holds the platform-decoupled clipboard state:

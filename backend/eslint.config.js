@@ -21,6 +21,7 @@ export default [
         Response: 'readonly',
         Headers: 'readonly',
         AbortController: 'readonly',
+        AbortSignal: 'readonly',
         Error: 'readonly',
         Date: 'readonly',
         JSON: 'readonly',

@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { getConfig } from './config.js';
-import { health } from '../api/v1/health.js';
+import { createApp } from './app.js';
 import { createServices } from './services/index.js';
 
 const config = getConfig();
@@ -15,22 +15,7 @@ const purgeTimer = setInterval(() => {
 }, config.clipboard.maintenanceIntervalMs);
 purgeTimer.unref();
 
-const server = createServer(async (request, response) => {
-  const url = new URL(
-    request.url,
-    `http://${request.headers.host || 'localhost'}`,
-  );
-  if (request.method === 'GET' && url.pathname === '/api/v1/health') {
-    const result = health();
-    response.writeHead(result.status, Object.fromEntries(result.headers));
-    response.end(await result.text());
-    return;
-  }
-  response.writeHead(404, {
-    'content-type': 'application/json; charset=utf-8',
-  });
-  response.end(JSON.stringify({ error: 'not_found' }));
-});
+const server = createServer(createApp({ config }));
 
 server.listen(config.port, () =>
   console.log(`Backend listening on http://localhost:${config.port}`),
