@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>管理后台 · 网络剪切板</title>
+    <link rel="stylesheet" href="/admin/admin.css" />
+  </head>
+  <body class="admin-page">
+    <header class="topbar">
+      <a class="brand" href="/admin">
+        <span class="brand-mark" aria-hidden="true">DCC</span>
+        <span class="brand-name">网络剪切板 · 管理后台</span>
+      </a>
+      <div class="session">
+        <span class="session-user">{{USERNAME}}</span>
+        <form method="post" action="/admin/logout">
+          <input type="hidden" name="_csrf" value="{{CSRF_TOKEN}}" />
+          <button class="btn btn-ghost" type="submit">退出登录</button>
+        </form>
+      </div>
+    </header>
+
+    <main class="shell">
+      <section class="hero">
+        <p class="eyebrow">Administration</p>
+        <h1>管理后台</h1>
+        <p class="muted">
+          后台已启用登录保护。当前会话有效期至
+          <time datetime="{{EXPIRES_AT}}">{{EXPIRES_AT}}</time>。
+        </p>
+      </section>
+
+      <section class="grid" aria-label="模块">
+        <article class="card">
+          <span class="card-icon" aria-hidden="true">◎</span>
+          <h2>仪表盘</h2>
+          <p>最新剪贴板、今日采集与设备统计。</p>
+          <span class="tag">待接入</span>
+        </article>
+        <article class="card">
+          <span class="card-icon" aria-hidden="true">▤</span>
+          <h2>设备列表</h2>
+          <p>设备在线状态、最后上报时间与离线高亮。</p>
+          <span class="tag">待接入</span>
+        </article>
+        <article class="card">
+          <span class="card-icon" aria-hidden="true">⇄</span>
+          <h2>Webhook</h2>
+          <p>下游转发配置、测试与失败记录。</p>
+          <span class="tag">待接入</span>
+        </article>
+        <article class="card">
+          <span class="card-icon" aria-hidden="true">≡</span>
+          <h2>日志看板</h2>
+          <p>历史采集日志筛选、分页与脱敏展示。</p>
+          <span class="tag">待接入</span>
+        </article>
+        <article class="card">
+          <span class="card-icon" aria-hidden="true">⚙</span>
+          <h2>设置</h2>
+          <p>Token 重置、自动提取与脱敏开关。</p>
+          <span class="tag">待接入</span>
+        </article>
+      </section>
+
+      <section class="notice">
+        <h2>访问控制已生效</h2>
+        <p>
+          未登录访问任何管理页面或管理 API 都会被拒绝；管理 API 包含
+          devices、webhooks、日志、统计与设置。本页仅作为鉴权落地的入口，
+          业务模块由后续需求接入。
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

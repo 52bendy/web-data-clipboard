@@ -16,6 +16,19 @@ npm run lint
 
 服务默认监听 `:3000`，可通过 `PORT` 环境变量覆盖。健康检查返回 HTTP 200 JSON。
 
+## 管理后台
+
+管理后台位于 `/admin`，默认拒绝匿名访问。启动前配置管理员凭据（推荐使用 scrypt 哈希）：
+
+```sh
+node backend/scripts/hash-admin-password.js 'your-strong-password'
+ADMIN_USERNAME=admin ADMIN_PASSWORD_HASH='scrypt$...' npm run dev
+# 打开 http://localhost:3000/admin
+```
+
+未配置凭据时后台 fail closed；管理 API（devices / webhooks / logs / stats / settings）
+统一要求登录态。详见 [backend/docs/admin-auth.md](backend/docs/admin-auth.md)。
+
 ## 目录说明
 
 - `backend/`：后端 API、本地开发服务器及管理前端静态资源落点。
