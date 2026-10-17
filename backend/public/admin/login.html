@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>登录 · 网络剪切板管理后台</title>
+    <link rel="stylesheet" href="/admin/login.css" />
+  </head>
+  <body class="auth-page">
+    <main class="auth-card">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">DCC</span>
+        <span class="brand-name">网络剪切板</span>
+      </div>
+      <h1>管理后台</h1>
+      <p class="muted">登录后可查看设备、剪贴板与系统设置。</p>
+      {{ERROR}}
+      <form class="auth-form" method="post" action="/admin/login" autocomplete="on">
+        <input type="hidden" name="next" value="{{NEXT}}" />
+        <label class="field">
+          <span>用户名</span>
+          <input
+            type="text"
+            name="username"
+            value="{{USERNAME}}"
+            autocomplete="username"
+            autocapitalize="none"
+            spellcheck="false"
+            required
+            autofocus
+          />
+        </label>
+        <label class="field">
+          <span>密码</span>
+          <input
+            type="password"
+            name="password"
+            autocomplete="current-password"
+            required
+          />
+        </label>
+        <button class="btn btn-primary" type="submit">登录</button>
+      </form>
+      <p class="footnote">仅限授权人员访问 · 会话将在过期后自动失效</p>
+    </main>
+  </body>
+</html>

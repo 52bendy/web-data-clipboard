@@ -36,6 +36,17 @@ All errors use `{ "code": <HTTP status>, "message": "<short English message>", "
 
 An expired clipboard item is equivalent to one that never existed: return 404 and do not serve historical content. Historical logs are retained independently of clipboard TTL. The 429 envelope is reserved for the rate limiter implemented by the follow-up security task.
 
+## Admin surface
+
+The management backend (`/admin`, `/admin/*`, `/api/admin/*` and the
+management API prefixes `/api/v1/devices`, `/api/v1/webhooks`, `/api/v1/logs`,
+`/api/v1/stats`, `/api/v1/settings`) uses a separate login-session scheme
+instead of `X-DCC-Token`. Anonymous access is denied by default; sessions are
+`HttpOnly` cookies with an absolute lifetime, login failures are rate limited,
+and state-changing admin API requests require a CSRF token. See
+[admin-auth.md](admin-auth.md) for the full contract. `X-DCC-Token` is not
+accepted for management APIs.
+
 ## HTTPS
 
 Request enforcement defaults off outside production and on when `NODE_ENV=production`; `ENFORCE_HTTPS=true|false` overrides the default. When enabled, this Node HTTP server expects TLS to terminate at a trusted reverse proxy, which must overwrite `X-Forwarded-Proto`; set `TRUST_PROXY=true` to honor its first value. The server itself does not terminate TLS. HTTP receives a 403 error envelope; requests are not redirected. Deployment-level TLS/redirect policy belongs to REQ-202610-1251 and must also be enabled there.
