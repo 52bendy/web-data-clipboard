@@ -8,6 +8,8 @@ const digest = (value) => createHash('sha256').update(value).digest();
  * comparison so response timing cannot leak the token. Fails closed when the
  * server token is not configured.
  *
+ * Query-string tokens are never accepted (defect 21); only the header is read.
+ *
  * @returns {Response | null} an error response to send, or null when allowed.
  */
 export function authorize(request, expectedToken) {

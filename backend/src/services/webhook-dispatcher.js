@@ -2,7 +2,7 @@ import { createLogger } from '../utils/logger.js';
 
 /**
  * Async fan-out point for accepted collections (PRD §4.1.1 step 4).
- * REQ-202610-1258 plugs the Webhook forwarder in as a sink (https-only
+ * REQ-202610-1258 registers the Webhook forwarder as a sink (https-only
  * targets, HMAC signing, retries, failure records); this module only
  * guarantees the collect chain never blocks on downstream delivery.
  *

@@ -8,3 +8,11 @@ export function ok(data, message = 'ok') {
     headers: { 'content-type': 'application/json; charset=utf-8' },
   });
 }
+
+/** Same envelope with HTTP 201 for resource creation. */
+export function created(data, message = 'Created') {
+  return new Response(JSON.stringify({ code: 201, message, data }), {
+    status: 201,
+    headers: { 'content-type': 'application/json; charset=utf-8' },
+  });
+}

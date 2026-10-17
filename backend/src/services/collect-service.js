@@ -214,6 +214,7 @@ export function createCollectService({
       dispatch(record, {
         collection_id: collectionId,
         device_id: payload.device_id,
+        sender: payload.sender,
       }),
     ).catch((error) => {
       logger?.error('collect.dispatch_failed', {

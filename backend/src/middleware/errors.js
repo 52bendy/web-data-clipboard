@@ -1,3 +1,7 @@
+/**
+ * Unified error envelope: `{ code, message, data: null }` (PRD §4.1.1 error
+ * shape), shared by every route (REQ-202610-1252).
+ */
 const messages = {
   400: 'Bad request.',
   401: 'Missing or invalid X-DCC-Token header.',

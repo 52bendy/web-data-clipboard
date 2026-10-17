@@ -7,6 +7,7 @@ import { createCollectHandler } from '../api/v1/collect.js';
 import { createLogsHandler } from '../api/v1/logs.js';
 import { createStatsHandler } from '../api/v1/stats.js';
 import { createDevicesHandler } from '../api/v1/devices.js';
+import { createWebhookHandlers } from '../api/v1/webhooks.js';
 import {
   createAdminDevicesHandler,
   createAdminSettingsHandlers,
@@ -19,6 +20,9 @@ import { isHttps } from './middleware/httpsEnforce.js';
 import { rateLimit } from './middleware/rateLimit.js';
 import { securityHeaders } from './middleware/securityHeaders.js';
 import { createLogger } from './utils/logger.js';
+
+const WEBHOOK_ID_PATH = /^\/api\/v1\/webhooks\/[^/]+$/;
+const WEBHOOK_TEST_PATH = /^\/api\/v1\/webhooks\/[^/]+\/test$/;
 
 /**
  * Shared app factory (REQ-202610-1252): security headers → HTTPS enforcement
@@ -41,14 +45,7 @@ export function createApp({
     try {
       const https = isHttps(request, config.trustProxy === true);
       for (const [name, value] of Object.entries(
-        securityHeaders(
-          {
-            contentSecurityPolicy:
-              config.contentSecurityPolicy || "default-src 'self'",
-            hstsMaxAge: config.hstsMaxAge ?? 31536000,
-          },
-          https,
-        ),
+        securityHeaders(config, https),
       )) {
         response.setHeader(name, value);
       }
@@ -153,6 +150,7 @@ export function buildRoutes({ config, services, logger, now = Date.now }) {
     deviceRegistry: services.deviceRegistry,
     config,
   });
+  const webhooks = createWebhookHandlers({ config, services, logger, now });
   const adminDevices = createAdminDevicesHandler({ services, config });
   const settings = createAdminSettingsHandlers({ services, logger });
   const clipboardLatest = createClipboardLatestHandler({
@@ -176,6 +174,48 @@ export function buildRoutes({ config, services, logger, now = Date.now }) {
     { method: 'GET', path: '/api/v1/logs', auth: true, handler: logs },
     { method: 'GET', path: '/api/v1/stats', auth: true, handler: stats },
     { method: 'GET', path: '/api/v1/devices', auth: true, handler: devices },
+    {
+      method: 'GET',
+      path: '/api/v1/webhooks',
+      auth: true,
+      handler: webhooks.list,
+    },
+    {
+      method: 'POST',
+      path: '/api/v1/webhooks',
+      auth: true,
+      handler: webhooks.create,
+    },
+    {
+      method: 'GET',
+      path: '/api/v1/webhooks/deliveries',
+      auth: true,
+      handler: webhooks.deliveries,
+    },
+    {
+      method: 'GET',
+      match: (pathname) => WEBHOOK_ID_PATH.test(pathname),
+      auth: true,
+      handler: webhooks.get,
+    },
+    {
+      method: 'PATCH',
+      match: (pathname) => WEBHOOK_ID_PATH.test(pathname),
+      auth: true,
+      handler: webhooks.update,
+    },
+    {
+      method: 'DELETE',
+      match: (pathname) => WEBHOOK_ID_PATH.test(pathname),
+      auth: true,
+      handler: webhooks.remove,
+    },
+    {
+      method: 'POST',
+      match: (pathname) => WEBHOOK_TEST_PATH.test(pathname),
+      auth: true,
+      handler: webhooks.test,
+    },
     { method: 'GET', path: '/api/admin/devices', admin: true, handler: adminDevices },
     { method: 'GET', path: '/api/admin/logs', admin: true, handler: logs },
     { method: 'GET', path: '/api/admin/stats', admin: true, handler: stats },
