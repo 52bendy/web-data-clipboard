@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="brand_primary">#0B6E6E</color>
+    <color name="brand_on_primary">#FFFFFF</color>
+    <color name="brand_primary_container">#A7F0EE</color>
+    <color name="brand_on_primary_container">#002020</color>
+    <color name="brand_secondary">#4A6363</color>
+    <color name="result_success_container">#D7F4E3</color>
+    <color name="result_success_text">#0B5A34</color>
+    <color name="result_error_container">#FDE2E1</color>
+    <color name="result_error_text">#8C1D18</color>
+    <color name="icon_background">#0B6E6E</color>
+    <color name="icon_foreground">#FFFFFF</color>
+</resources>

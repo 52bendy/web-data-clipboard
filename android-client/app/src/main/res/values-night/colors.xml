@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="brand_primary">#7FD8D5</color>
+    <color name="brand_on_primary">#003737</color>
+    <color name="brand_primary_container">#004F4F</color>
+    <color name="brand_on_primary_container">#A7F0EE</color>
+    <color name="brand_secondary">#B1CCCC</color>
+    <color name="result_success_container">#0B3B26</color>
+    <color name="result_success_text">#9BE7BC</color>
+    <color name="result_error_container">#5C1512</color>
+    <color name="result_error_text">#FFB4AB</color>
+</resources>
