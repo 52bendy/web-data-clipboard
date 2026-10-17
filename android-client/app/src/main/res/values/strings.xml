@@ -30,6 +30,10 @@
     <string name="service_status_disabled">已关闭</string>
     <string name="service_switch_saved">服务开关已保存</string>
     <string name="service_switch_content_description">后台采集服务开关</string>
+    <string name="service_notification_channel_name">数据采集中心</string>
+    <string name="service_notification_title">数据采集中心</string>
+    <string name="service_notification_text">数据采集中心后台服务运行中…</string>
+    <string name="service_config_invalid">请先填写有效的服务器地址、Token 和设备名称</string>
 
     <string name="save_button">保存配置</string>
     <string name="save_success">配置已保存</string>

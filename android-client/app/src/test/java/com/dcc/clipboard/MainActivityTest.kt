@@ -13,6 +13,7 @@ import com.google.android.material.textfield.TextInputLayout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.robolectric.Shadows.shadowOf
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -57,6 +58,61 @@ class MainActivityTest {
                 )
                 assertTrue(activity.findViewById<MaterialSwitch>(R.id.serviceSwitch).isChecked)
                 assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.deviceIdText).visibility)
+            }
+        }
+    }
+
+    @Test
+    fun `valid switch enable starts foreground service and persists enabled state`() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                activity.findViewById<TextInputEditText>(R.id.serverUrlInput).setText("https://dcc.example.com")
+                activity.findViewById<TextInputEditText>(R.id.apiTokenInput).setText("token-123")
+                activity.findViewById<TextInputEditText>(R.id.deviceNameInput).setText("Test device")
+                activity.findViewById<MaterialSwitch>(R.id.serviceSwitch).isChecked = true
+                assertTrue(shadowOf(activity).peekNextStartedService().component?.className?.endsWith("DccForegroundService") == true)
+                assertTrue(StorageHelper(activity).loadConfig().serviceEnabled)
+            }
+        }
+    }
+
+    @Test
+    fun `invalid switch enable reverts and does not persist enabled state`() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                activity.findViewById<MaterialSwitch>(R.id.serviceSwitch).isChecked = true
+                assertEquals(false, activity.findViewById<MaterialSwitch>(R.id.serviceSwitch).isChecked)
+                assertEquals(false, StorageHelper(activity).loadConfig().serviceEnabled)
+                assertEquals(null, shadowOf(activity).peekNextStartedService())
+            }
+        }
+    }
+
+    @Test
+    fun `disabling switch stops the foreground service`() {
+        StorageHelper(context).saveConfig(
+            ClientConfig("https://dcc.example.com", "token", "device", serviceEnabled = true),
+        )
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                activity.findViewById<MaterialSwitch>(R.id.serviceSwitch).isChecked = false
+                assertTrue(shadowOf(activity).getNextStoppedService()?.component?.className?.endsWith("DccForegroundService") == true)
+                assertEquals(false, StorageHelper(activity).loadConfig().serviceEnabled)
+            }
+        }
+    }
+
+    @Test
+    fun `save while enabled reconciles service start`() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                activity.findViewById<TextInputEditText>(R.id.serverUrlInput).setText("https://dcc.example.com")
+                activity.findViewById<TextInputEditText>(R.id.apiTokenInput).setText("token")
+                activity.findViewById<TextInputEditText>(R.id.deviceNameInput).setText("device")
+                activity.findViewById<MaterialSwitch>(R.id.serviceSwitch).isChecked = true
+                shadowOf(activity).clearStartedServices()
+                activity.findViewById<MaterialButton>(R.id.saveButton).performClick()
+                assertTrue(shadowOf(activity).peekNextStartedService()?.component?.className?.endsWith("DccForegroundService") == true)
             }
         }
     }

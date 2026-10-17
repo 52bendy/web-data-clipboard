@@ -21,6 +21,7 @@ import com.dcc.clipboard.data.StorageHelper
 import com.dcc.clipboard.databinding.ActivityMainBinding
 import com.dcc.clipboard.network.TestConnectionClient
 import com.dcc.clipboard.network.TestConnectionResult
+import com.dcc.clipboard.service.DccForegroundService
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -30,6 +31,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var storageHelper: StorageHelper
     private val testConnectionClient = TestConnectionClient()
+
+    private val requestNotificationPermission = registerForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { }
+
+    private var notificationPermissionRequested = false
 
     private val requestSmsPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -57,6 +64,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         updatePermissionStatus()
+        reconcileServiceState()
     }
 
     private fun bindSavedConfig() {
@@ -73,7 +81,7 @@ class MainActivity : AppCompatActivity() {
             R.string.device_id_format,
             storageHelper.getOrCreateDeviceId(),
         )
-        updateServiceStatus()
+        reconcileServiceState()
     }
 
     private fun bindActions() {
@@ -82,9 +90,24 @@ class MainActivity : AppCompatActivity() {
         binding.requestPermissionButton.setOnClickListener { requestSmsPermissionOrOpenSettings() }
 
         binding.serviceSwitch.setOnCheckedChangeListener { _, isChecked ->
-            storageHelper.setServiceEnabled(isChecked)
+            if (isChecked) {
+                val config = validatedConfig()
+                if (config == null) {
+                    binding.serviceSwitch.isChecked = false
+                    storageHelper.setServiceEnabled(false)
+                    updateServiceStatus()
+                    Snackbar.make(binding.root, R.string.service_config_invalid, Snackbar.LENGTH_LONG).show()
+                    return@setOnCheckedChangeListener
+                }
+                storageHelper.saveConfig(config)
+                storageHelper.setServiceEnabled(true)
+                startCollectionService()
+                Snackbar.make(binding.root, R.string.service_switch_saved, Snackbar.LENGTH_SHORT).show()
+            } else {
+                storageHelper.setServiceEnabled(false)
+                stopCollectionService()
+            }
             updateServiceStatus()
-            Snackbar.make(binding.root, R.string.service_switch_saved, Snackbar.LENGTH_SHORT).show()
         }
 
         binding.serverUrlInput.doAfterTextChanged { binding.serverUrlLayout.error = null }
@@ -98,6 +121,7 @@ class MainActivity : AppCompatActivity() {
         // Echo the normalized value so the user sees exactly what was stored.
         binding.serverUrlInput.setText(config.serverUrl)
         binding.serverUrlInput.setSelection(config.serverUrl.length)
+        reconcileServiceState()
         if (showFeedback) {
             Snackbar.make(binding.root, R.string.save_success, Snackbar.LENGTH_SHORT).show()
         }
@@ -291,13 +315,45 @@ class MainActivity : AppCompatActivity() {
         ContextCompat.checkSelfPermission(this, Manifest.permission.RECEIVE_SMS) ==
             PackageManager.PERMISSION_GRANTED
 
-    private fun updateServiceStatus() {
+    private fun reconcileServiceState() {
+        val config = storageHelper.loadConfig()
+        val valid = ConfigValidator.validate(config.serverUrl, config.apiToken, config.deviceName).isValid
+        val shouldRun = config.serviceEnabled && valid
+        if (config.serviceEnabled && !valid) {
+            storageHelper.setServiceEnabled(false)
+            binding.serviceSwitch.isChecked = false
+        }
+        if (shouldRun) {
+            startCollectionService()
+        } else {
+            stopCollectionService()
+        }
+        updateServiceStatus(shouldRun)
+    }
+
+    private fun startCollectionService() {
+        requestNotificationPermissionIfNeeded()
+        val intent = Intent(this, DccForegroundService::class.java)
+        ContextCompat.startForegroundService(this, intent)
+    }
+
+    private fun stopCollectionService() {
+        stopService(Intent(this, DccForegroundService::class.java))
+    }
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED && !notificationPermissionRequested
+        ) {
+            notificationPermissionRequested = true
+            requestNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    private fun updateServiceStatus(enabled: Boolean = binding.serviceSwitch.isChecked) {
         binding.serviceStatusText.setText(
-            if (binding.serviceSwitch.isChecked) {
-                R.string.service_status_enabled
-            } else {
-                R.string.service_status_disabled
-            },
+            if (enabled) R.string.service_status_enabled else R.string.service_status_disabled,
         )
     }
 }
