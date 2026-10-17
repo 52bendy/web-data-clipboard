@@ -82,6 +82,7 @@ class ReportRetryWorkerTest {
         val work = WorkManager.getInstance(context)
             .getWorkInfosForUniqueWork(ReportScheduler.workName(payload.clientMessageId)).get()
         assertTrue(work.any { !it.state.isFinished })
+        assertEquals(2_000L, work.last().initialDelayMillis)
         assertEquals(NetworkType.CONNECTED, work.last().constraints.requiredNetworkType)
         assertEquals(
             setOf(ReportScheduler.INPUT_CLIENT_MESSAGE_ID, ReportScheduler.INPUT_ATTEMPT),
@@ -175,7 +176,7 @@ class ReportRetryWorkerTest {
     ) {
         val request = ReportScheduler(context).createRequest(id, expectedAttempt)
         assertEquals(expectedAttempt, request.workSpec.input.getInt(ReportScheduler.INPUT_ATTEMPT, -1))
-        assertEquals(expectedDelay * 1_000, request.workSpec.initialDelay)
+        assertEquals(expectedDelay * 1_000, work.initialDelayMillis)
         assertEquals(NetworkType.CONNECTED, work.constraints.requiredNetworkType)
     }
 
