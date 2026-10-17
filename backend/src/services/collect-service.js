@@ -159,12 +159,19 @@ export function createCollectService({
       full_text: payload.raw_content,
       parsed_code: extraction.extracted_code,
       data_type: extraction.type,
+      // Reference only: the store assigns `received_at` at commit time and
+      // never uses this value for ordering or expiry (defect 23).
+      client_timestamp: payload.timestamp,
       source: {
         device_name: payload.device_name,
         platform: payload.platform,
       },
     });
-    log('collect.clipboard_updated', { clipboard_id: record.clipboard_id });
+    log('collect.clipboard_updated', {
+      clipboard_id: record.clipboard_id,
+      received_at: record.received_at,
+      client_timestamp: record.client_timestamp,
+    });
 
     // Append to the admin log store (REQ-202610-1259). A log failure must not
     // fail the device report or lose the clipboard update, so it is contained.
@@ -181,7 +188,7 @@ export function createCollectService({
           data_type: extraction.type,
           status: 'written',
           client_timestamp: payload.timestamp,
-          received_at: record.updated_at,
+          received_at: record.received_at,
         });
         log('collect.logged', { log_id: logRecord.log_id });
       } catch (error) {
