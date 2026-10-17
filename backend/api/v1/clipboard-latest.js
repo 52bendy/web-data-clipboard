@@ -3,11 +3,25 @@ import { authorize } from '../../src/middleware/auth.js';
 import { errorResponse } from '../../src/middleware/errors.js';
 import { DEFAULT_TTL_MS } from '../../src/services/clipboard-store.js';
 
-/** Defect 24: an absent or TTL-expired clipboard is indistinguishable (404). */
+/**
+ * Defect 24 / REQ-202610-1273: an absent or TTL-expired clipboard is
+ * indistinguishable (404). See docs/clipboard-ttl-semantics.md.
+ */
 const NO_DATA_MESSAGE = 'No clipboard data available.';
 /** Defect 21: tokens in the query string are never accepted. */
 const QUERY_TOKEN_MESSAGE =
   'Token must be sent in the X-DCC-Token header; query-string tokens are not supported.';
+
+/**
+ * A missing and a TTL-expired clipboard share one response (REQ-202610-1273).
+ * `no-store` keeps intermediaries from caching the empty state and delaying
+ * the next write's visibility.
+ */
+function noDataResponse() {
+  const response = errorResponse(404, NO_DATA_MESSAGE);
+  response.headers.set('cache-control', 'no-store');
+  return response;
+}
 
 /**
  * GET /api/v1/clipboard/latest (PRD §4.1.2).
@@ -57,16 +71,17 @@ export function createClipboardLatestHandler({
     if (denied) return denied;
 
     const record = await services.clipboardStore.getLatest();
-    if (!record) return errorResponse(404, NO_DATA_MESSAGE);
+    if (!record) return noDataResponse();
 
     const timing = getClipboardTiming(record, { ttlMs, nowMs: now() });
     if (!timing) {
       return errorResponse(500);
     }
     // Storage adapters treat expired entries as absent, but the API also
-    // guards here so an adapter that returns stale data cannot leak it.
+    // guards here so an adapter that returns stale data cannot leak it. The
+    // boundary is inclusive: at `updated_at + ttlMs` the record is expired.
     if (timing.remainingMs <= 0) {
-      return errorResponse(404, NO_DATA_MESSAGE);
+      return noDataResponse();
     }
     const { updatedAtMs } = timing;
 

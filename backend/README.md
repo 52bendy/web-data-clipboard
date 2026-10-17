@@ -44,8 +44,8 @@ Semantics:
 
 - Writes are atomic: concurrent `update` cycles serialize per key, so every accepted write takes the next server-side `seq`; the last one wins as latest and all of them are appended to history.
 - Server receive time is authoritative: `updated_at` and ordering are assigned server-side, client-supplied timestamps/ids are ignored (defect 23).
-- TTL: the latest record expires after `ttlMs` (default 30 minutes); expired reads return "absent" (`null`) and expired data is purged lazily on read, by the maintenance sweep, or by `purgeExpired()`.
-- History retention is configurable by count and age (`0` = unlimited) and is trimmed on write and on purge.
+- TTL: the latest record expires after `ttlMs` (default 30 minutes); expired reads return "absent" (`null`) and expired data is purged lazily on read, by the maintenance sweep, or by `purgeExpired()`. The public read API formalizes this as `404` (expired == absent) — see [docs/clipboard-ttl-semantics.md](docs/clipboard-ttl-semantics.md) (REQ-202610-1273).
+- History retention is configurable by count and age (`0` = unlimited) and is trimmed on write and on purge. Clipboard TTL expiry does not delete collection logs or statistics.
 
 Environment variables:
 
