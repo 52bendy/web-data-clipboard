@@ -56,6 +56,7 @@ export function createWebhookStore({
   storage,
   now = Date.now,
   resolveHost,
+  allowedHosts = [],
   maxConfigs = 20,
   maxDeliveries = 200,
 } = {}) {
@@ -75,7 +76,10 @@ export function createWebhookStore({
         'request body must be a JSON object.',
       );
     }
-    const url = await validateWebhookUrl(input.url, { resolveHost });
+    const url = await validateWebhookUrl(input.url, {
+      resolveHost,
+      allowedHosts,
+    });
     const name = normalizeName(input.name, url.hostname);
     const enabled = normalizeEnabled(input.enabled);
     const timestamp = new Date(now()).toISOString();
@@ -120,7 +124,10 @@ export function createWebhookStore({
     }
     let nextUrl = null;
     if (patch.url !== undefined) {
-      nextUrl = await validateWebhookUrl(patch.url, { resolveHost });
+      nextUrl = await validateWebhookUrl(patch.url, {
+        resolveHost,
+        allowedHosts,
+      });
     }
     let updated = null;
     await storage.update(CONFIGS_KEY, (current) => {

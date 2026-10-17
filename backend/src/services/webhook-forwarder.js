@@ -132,6 +132,7 @@ export function createWebhookForwarder({
   const maxAttempts = settings.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
   const retryBaseDelayMs =
     settings.retryBaseDelayMs ?? DEFAULT_RETRY_BASE_DELAY_MS;
+  const allowedHosts = settings.allowedHosts ?? [];
 
   async function deliverOne(
     webhook,
@@ -164,9 +165,10 @@ export function createWebhookForwarder({
     while (attempts < maxAttempts) {
       attempts += 1;
       try {
-        // Re-check the target at delivery time; the https lookup hook checks
-        // the actual connection address again (DNS rebinding defence).
-        const target = await validateTarget(webhook.url);
+        // Re-check the target at delivery time (including the optional
+        // allowlist); the https lookup hook checks the actual connection
+        // address again (DNS rebinding defence).
+        const target = await validateTarget(webhook.url, { allowedHosts });
         const response = await send(target, { body, headers, timeoutMs });
         lastStatus = response.status;
         lastResponse = response.body ?? null;

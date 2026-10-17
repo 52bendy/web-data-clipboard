@@ -3,6 +3,7 @@ import {
   DEFAULT_HISTORY_MAX_ENTRIES,
   DEFAULT_TTL_MS,
 } from './services/clipboard-store.js';
+import { normalizeAllowedHosts } from './services/webhook-target.js';
 
 const DEFAULT_PORT = 3000;
 const DEFAULT_MAINTENANCE_INTERVAL_MS = 60 * 1000;
@@ -27,6 +28,27 @@ function nonNegativeInt(value, fallback) {
   if (value === undefined || value === '') return fallback;
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+/**
+ * Parses `WEBHOOK_ALLOWED_HOSTS` (comma-separated hostnames, IP literals or
+ * `*.domain` wildcards). An empty value disables the allowlist. Invalid
+ * entries fail fast at startup instead of silently widening or narrowing
+ * the allowed target set.
+ */
+function parseAllowedHosts(value) {
+  if (value === undefined || value === null || String(value).trim() === '') {
+    return [];
+  }
+  const entries = String(value)
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  try {
+    return normalizeAllowedHosts(entries);
+  } catch (error) {
+    throw new Error(`WEBHOOK_ALLOWED_HOSTS is invalid: ${error.message}`);
+  }
 }
 
 export function getConfig(env = process.env) {
@@ -99,6 +121,8 @@ export function getConfig(env = process.env) {
       maxBodyBytes: positiveInt(env.MAX_BODY_BYTES, DEFAULT_MAX_BODY_BYTES),
     },
     webhook: {
+      // Optional outbound target allowlist (defect 22). Empty = disabled.
+      allowedHosts: parseAllowedHosts(env.WEBHOOK_ALLOWED_HOSTS),
       // Per-attempt network timeout; retries use exponential backoff.
       timeoutMs: positiveInt(
         env.WEBHOOK_TIMEOUT_MS,

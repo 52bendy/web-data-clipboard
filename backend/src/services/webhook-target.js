@@ -131,6 +131,85 @@ export function normalizeHostname(hostname) {
     .replace(/\.$/, '');
 }
 
+const MAX_ALLOWED_HOST_LENGTH = 253;
+const HOST_LABEL_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+
+export class WebhookAllowlistError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'WebhookAllowlistError';
+    this.code = 'invalid_allowlist';
+  }
+}
+
+function isValidHostname(value) {
+  if (value.length === 0 || value.length > MAX_ALLOWED_HOST_LENGTH) {
+    return false;
+  }
+  const labels = value.split('.');
+  // Webhook targets must be fully qualified, so a single-label allowlist
+  // entry could never match; reject it as a configuration error.
+  if (labels.length < 2) return false;
+  return labels.every((label) => HOST_LABEL_PATTERN.test(label));
+}
+
+/**
+ * Normalizes one allowlist entry: a public hostname, an IP literal, or a
+ * `*.example.com` wildcard that matches one or more subdomain labels.
+ */
+export function normalizeAllowedHost(entry) {
+  if (typeof entry !== 'string') {
+    throw new WebhookAllowlistError('allowlist entries must be strings.');
+  }
+  const value = normalizeHostname(entry.trim());
+  if (value === '') {
+    throw new WebhookAllowlistError('allowlist entries must not be empty.');
+  }
+  if (value.startsWith('*.')) {
+    const suffix = value.slice(2);
+    if (isIP(suffix) || !isValidHostname(suffix)) {
+      throw new WebhookAllowlistError(
+        `invalid wildcard allowlist entry: ${entry}`,
+      );
+    }
+    return `*.${suffix}`;
+  }
+  if (value.includes('*')) {
+    throw new WebhookAllowlistError(`invalid allowlist entry: ${entry}`);
+  }
+  if (!isIP(value) && !isValidHostname(value)) {
+    throw new WebhookAllowlistError(
+      `allowlist entry must be a hostname, IP literal or *.domain wildcard: ${entry}`,
+    );
+  }
+  return value;
+}
+
+/** Normalizes and de-duplicates a list of allowlist entries. */
+export function normalizeAllowedHosts(entries = []) {
+  if (!Array.isArray(entries)) {
+    throw new WebhookAllowlistError('allowlist must be an array.');
+  }
+  return [...new Set(entries.map(normalizeAllowedHost))];
+}
+
+/**
+ * Returns true when the hostname is allowed. An empty allowlist means the
+ * allowlist is disabled (every otherwise-valid public target is allowed).
+ */
+export function isHostAllowed(hostname, allowedHosts = []) {
+  const normalized = normalizeHostname(hostname);
+  if (!Array.isArray(allowedHosts) || allowedHosts.length === 0) return true;
+  return allowedHosts.some((entry) => {
+    const pattern = normalizeHostname(entry);
+    if (pattern.startsWith('*.')) {
+      const suffix = pattern.slice(1);
+      return normalized.endsWith(suffix) && normalized.length > suffix.length;
+    }
+    return normalized === pattern;
+  });
+}
+
 export function isBlockedHostname(hostname) {
   const normalized = normalizeHostname(hostname);
   if (BLOCKED_HOSTNAMES.has(normalized)) return true;
@@ -144,15 +223,16 @@ export async function resolvePublicHost(hostname) {
 
 /**
  * Validates a Webhook URL and resolves its hostname, rejecting targets that
- * point at private or reserved networks. `resolveHost` is injectable for
- * deterministic tests.
+ * point at private or reserved networks. When `allowedHosts` is non-empty,
+ * the hostname must also match the configured allowlist. `resolveHost` is
+ * injectable for deterministic tests.
  *
  * @returns {Promise<URL>} the parsed URL
  * @throws {WebhookTargetError}
  */
 export async function validateWebhookUrl(
   rawUrl,
-  { resolveHost = resolvePublicHost } = {},
+  { resolveHost = resolvePublicHost, allowedHosts = [] } = {},
 ) {
   if (typeof rawUrl !== 'string' || rawUrl.trim() === '') {
     throw new WebhookTargetError('url must be a non-empty string.');
@@ -185,6 +265,12 @@ export async function validateWebhookUrl(
         'blocked_target',
       );
     }
+    if (!isHostAllowed(hostname, allowedHosts)) {
+      throw new WebhookTargetError(
+        'url hostname is not in the configured allowlist.',
+        'host_not_allowed',
+      );
+    }
     return url;
   }
   if (isBlockedHostname(hostname)) {
@@ -198,6 +284,12 @@ export async function validateWebhookUrl(
     throw new WebhookTargetError(
       'url must use a fully qualified public hostname.',
       'blocked_target',
+    );
+  }
+  if (!isHostAllowed(hostname, allowedHosts)) {
+    throw new WebhookTargetError(
+      'url hostname is not in the configured allowlist.',
+      'host_not_allowed',
     );
   }
   let addresses;

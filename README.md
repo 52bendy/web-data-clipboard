@@ -26,7 +26,7 @@ npm run lint
 
 - 后端采用 Node.js + JavaScript ESM，开发服务仅依赖 Node 内置模块，与 Vercel / Cloudflare 部署选型解耦。
 - 管理前端将基于 [shadcn-admin](https://github.com/satnaing/shadcn-admin)；本基线不引入其完整工程，`backend/public/` 作为未来构建产物目录。相较 PRD §3 的静态 `public/` 页面方案，这是负责人指定的模板决策；静态资源落点仍予保留。
-- 健康检查路由已提供；剪贴板存储服务（TTL / 原子更新 / 历史，REQ-202610-1255）落在 `backend/src/services/`，存储抽象层与部署选型解耦（内存实现可本地运行）。短信采集上报接口 `POST /api/v1/collect`（REQ-202610-1253）已实现，串起鉴权、字段校验、提取引擎与剪贴板更新。Webhook 配置管理与异步分发器（REQ-202610-1258）已接入：`/api/v1/webhooks` 提供配置 CRUD 与测试投递，采集后按启用的配置异步转发（https-only + 内网拦截 + HMAC 签名 + 指数退避重试 + 分发记录），详见 `backend/docs/webhooks.md`。`clipboard`、`devices` 读取路由与部署配置（`vercel.json` / `wrangler.toml`）由对应后续子需求实现。
+- 健康检查路由已提供；剪贴板存储服务（TTL / 原子更新 / 历史，REQ-202610-1255）落在 `backend/src/services/`，存储抽象层与部署选型解耦（内存实现可本地运行）。短信采集上报接口 `POST /api/v1/collect`（REQ-202610-1253）已实现，串起鉴权、字段校验、提取引擎与剪贴板更新。Webhook 配置管理与异步分发器（REQ-202610-1258）已接入：`/api/v1/webhooks` 提供配置 CRUD 与测试投递，采集后按启用的配置异步转发（https-only + 内网拦截 + 可选目标白名单 + HMAC 签名 + 指数退避重试 + 分发记录），详见 `backend/docs/webhooks.md`。`clipboard`、`devices` 读取路由与部署配置（`vercel.json` / `wrangler.toml`）由对应后续子需求实现。
 - 仓库名为 `web-data-clipboard`，PRD 示例目录名 `data-collection-center` 仅为说明性名称。
 
 ## 规范入口

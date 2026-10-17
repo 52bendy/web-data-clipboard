@@ -130,13 +130,29 @@ function verify(rawBody, headers, secret) {
 - 拒绝回环、私有、链路本地、保留地址：IPv4 `0/8`、`10/8`、`100.64/10`、`127/8`、`169.254/16`、`172.16/12`、`192.0.0/24`、`192.0.2/24`、`192.168/16`、`198.18/15`、`198.51.100/24`、`203.0.113/24`、`224/4`、`240/4`；IPv6 `::`、`::1`、`fc00::/7`、`fe80::/10`、`ff00::/8`、`2001:db8::/32`、`100::/64`，以及 IPv4-mapped / NAT64 中嵌入的上述 IPv4 地址。
 - 主机名在配置时解析一次（任一解析结果为受限地址即拒绝），投递时再次解析；实际建立 TLS 连接时还会对 DNS 结果做一次校验，防止 DNS rebinding。
 - 不跟随重定向（3xx 视为失败并按重试策略处理）。
+- 可选目标白名单：设置 `WEBHOOK_ALLOWED_HOSTS` 后，仅允许匹配的主机名；白名单是叠加在内网/回环拦截之上的额外限制，不能把受限地址放行。
+
+### 5.1 可选目标白名单
+
+默认不启用（允许任意通过上述校验的公网 https 目标）。需要把出站范围收紧到已知下游时，设置逗号分隔的 `WEBHOOK_ALLOWED_HOSTS`：
+
+```sh
+# 精确匹配 hooks.example.com；通配 *.partner.example 匹配其子域（不含裸域）
+WEBHOOK_ALLOWED_HOSTS=hooks.example.com,*.partner.example
+```
+
+- 匹配不区分大小写，忽略末尾的 `.`，端口不参与匹配（`https://hooks.example.com:8443/...` 仍按主机名匹配）。
+- `*.example.com` 只匹配至少一级子域（`a.example.com`、`a.b.example.com`），不匹配 `example.com`；如裸域也要放行，请同时列出 `example.com`。
+- 创建、修改配置和每次投递前都会按当前白名单重新校验；修改环境变量并重启后，历史配置中不再匹配的目标会在投递时失败并记录分发失败。
+- 白名单条目只能是主机名、IP 字面量或 `*.domain` 通配；非法条目会在启动时直接报错（fail fast），避免误配置静默放大范围。
 
 ## 6. 环境变量
 
-| 变量                          | 默认   | 说明                 |
-| ----------------------------- | ------ | -------------------- |
-| `WEBHOOK_TIMEOUT_MS`          | `5000` | 单次投递超时         |
-| `WEBHOOK_MAX_ATTEMPTS`        | `3`    | 总尝试次数（含首次） |
-| `WEBHOOK_RETRY_BASE_DELAY_MS` | `1000` | 指数退避基数         |
-| `WEBHOOK_MAX_CONFIGS`         | `20`   | 最大配置数           |
-| `WEBHOOK_MAX_DELIVERIES`      | `200`  | 内存分发记录保留条数 |
+| 变量                          | 默认   | 说明                                        |
+| ----------------------------- | ------ | ------------------------------------------- |
+| `WEBHOOK_ALLOWED_HOSTS`       | 空     | 可选目标白名单（逗号分隔，支持 `*.domain`） |
+| `WEBHOOK_TIMEOUT_MS`          | `5000` | 单次投递超时                                |
+| `WEBHOOK_MAX_ATTEMPTS`        | `3`    | 总尝试次数（含首次）                        |
+| `WEBHOOK_RETRY_BASE_DELAY_MS` | `1000` | 指数退避基数                                |
+| `WEBHOOK_MAX_CONFIGS`         | `20`   | 最大配置数                                  |
+| `WEBHOOK_MAX_DELIVERIES`      | `200`  | 内存分发记录保留条数                        |

@@ -29,6 +29,7 @@ export function createServices({ config = {}, now = Date.now, logger } = {}) {
   const webhookStore = createWebhookStore({
     storage,
     now,
+    allowedHosts: webhookConfig.allowedHosts,
     maxConfigs: webhookConfig.maxConfigs,
     maxDeliveries: webhookConfig.maxDeliveries,
     resolveHost: webhookConfig.resolveHost,

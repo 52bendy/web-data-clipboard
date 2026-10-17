@@ -91,14 +91,15 @@ Environment variables:
 
 `/api/v1/webhooks` manages downstream consumers (URL / name / enabled; HMAC secret generated per config). After each accepted collection the dispatcher fans out asynchronously to every enabled Webhook: it formats a §7.2.2-style `message`, sends the structured payload with `X-DCC-Signature: sha256=<HMAC-SHA256(secret, "<timestamp>.<raw body>")>`, applies a per-attempt timeout and exponential-backoff retries, and records every success/failure in `/api/v1/webhooks/deliveries` for the admin UI. `POST /api/v1/webhooks/:id/test` is the backend for the admin "test" button.
 
-Targets are restricted to public `https:` endpoints: loopback/private/reserved IPs, local hostnames and DNS answers that resolve to them are rejected at config time and again at delivery time (defect 22 / SSRF). Full API, payload, signature-verification and retry contract: [`docs/webhooks.md`](docs/webhooks.md).
+Targets are restricted to public `https:` endpoints: loopback/private/reserved IPs, local hostnames and DNS answers that resolve to them are rejected at config time and again at delivery time (defect 22 / SSRF). Setting `WEBHOOK_ALLOWED_HOSTS` adds an optional allowlist (exact hostnames, IP literals or `*.domain` wildcards) that is enforced on create/update and before every delivery. Full API, payload, signature-verification and retry contract: [`docs/webhooks.md`](docs/webhooks.md).
 
 Environment variables:
 
-| Variable                      | Default | Purpose                              |
-| ----------------------------- | ------- | ------------------------------------ |
-| `WEBHOOK_TIMEOUT_MS`          | `5000`  | Per-attempt delivery timeout         |
-| `WEBHOOK_MAX_ATTEMPTS`        | `3`     | Total attempts including the first   |
-| `WEBHOOK_RETRY_BASE_DELAY_MS` | `1000`  | Exponential backoff base (1s, 2s, …) |
-| `WEBHOOK_MAX_CONFIGS`         | `20`    | Maximum stored Webhook configs       |
-| `WEBHOOK_MAX_DELIVERIES`      | `200`   | Delivery-log retention               |
+| Variable                      | Default | Purpose                                               |
+| ----------------------------- | ------- | ----------------------------------------------------- |
+| `WEBHOOK_ALLOWED_HOSTS`       | empty   | Optional target allowlist (CSV, `*.domain` wildcards) |
+| `WEBHOOK_TIMEOUT_MS`          | `5000`  | Per-attempt delivery timeout                          |
+| `WEBHOOK_MAX_ATTEMPTS`        | `3`     | Total attempts including the first                    |
+| `WEBHOOK_RETRY_BASE_DELAY_MS` | `1000`  | Exponential backoff base (1s, 2s, …)                  |
+| `WEBHOOK_MAX_CONFIGS`         | `20`    | Maximum stored Webhook configs                        |
+| `WEBHOOK_MAX_DELIVERIES`      | `200`   | Delivery-log retention                                |
