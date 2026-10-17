@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="300" viewBox="0 0 1040 300" role="img" aria-labelledby="title desc">
+  <title id="title">创建信息个人自动化的四个步骤</title>
+  <desc id="desc">在快捷指令 App 的自动化标签中新建信息触发器，选择立即运行并关闭运行前询问，然后选择 SMS Collector 快捷指令并关闭运行通知。</desc>
+  <defs>
+    <marker id="arrow2" markerWidth="10" markerHeight="10" refX="9" refY="3.5" orient="auto">
+      <path d="M0,0 L0,7 L9,3.5 z" fill="#94a3b8"/>
+    </marker>
+    <style>
+      .card { fill: #ffffff; stroke: #dbe3ee; stroke-width: 1.5; }
+      .num { font-family: "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif; font-size: 15px; font-weight: 700; fill: #ffffff; }
+      .h { font-family: "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif; font-size: 16px; font-weight: 700; fill: #0f172a; }
+      .p { font-family: "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif; font-size: 13px; fill: #475569; }
+      .tip { font-family: "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif; font-size: 12px; fill: #b45309; }
+      .arrow { stroke: #94a3b8; stroke-width: 2; fill: none; marker-end: url(#arrow2); }
+      .phone { fill: #0f172a; }
+      .screen { fill: #f8fafc; }
+    </style>
+  </defs>
+  <rect x="0" y="0" width="1040" height="300" fill="#f8fafc"/>
+  <text x="32" y="40" font-family="PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif" font-size="20" font-weight="700" fill="#0f172a">个人自动化：四步设置（示意图）</text>
+  <text x="32" y="64" class="p">入口：快捷指令 App 底部「自动化」→ 右上角「+」→「信息」。</text>
+
+  <g>
+    <rect x="32" y="92" width="220" height="150" rx="14" class="card"/>
+    <circle cx="58" cy="120" r="13" fill="#2563eb"/><text x="58" y="125" text-anchor="middle" class="num">1</text>
+    <text x="80" y="125" class="h">新建「信息」触发器</text>
+    <text x="52" y="154" class="p">自动化 → + → 信息</text>
+    <text x="52" y="176" class="p">选择「收到信息时」</text>
+    <text x="52" y="198" class="p">可按发件人或关键词过滤</text>
+    <text x="52" y="220" class="tip">建议关键词：验证码 / 校验码</text>
+  </g>
+
+  <g>
+    <rect x="282" y="92" width="220" height="150" rx="14" class="card"/>
+    <circle cx="308" cy="120" r="13" fill="#0f766e"/><text x="308" y="125" text-anchor="middle" class="num">2</text>
+    <text x="330" y="125" class="h">选择「立即运行」</text>
+    <text x="302" y="154" class="p">不要选「运行前询问」</text>
+    <text x="302" y="176" class="p">否则每次都要手动确认</text>
+    <text x="302" y="198" class="p">首次运行按系统提示确认</text>
+    <text x="302" y="220" class="tip">iOS 17+ 可在设置中关闭确认</text>
+  </g>
+
+  <g>
+    <rect x="532" y="92" width="220" height="150" rx="14" class="card"/>
+    <circle cx="558" cy="120" r="13" fill="#b45309"/><text x="558" y="125" text-anchor="middle" class="num">3</text>
+    <text x="580" y="125" class="h">关闭「运行通知」</text>
+    <text x="552" y="154" class="p">自动化详情页的</text>
+    <text x="552" y="176" class="p">「运行通知」开关关闭</text>
+    <text x="552" y="198" class="p">避免每次收短信都弹提示</text>
+    <text x="552" y="220" class="tip">不影响快捷指令内部通知</text>
+  </g>
+
+  <g>
+    <rect x="782" y="92" width="226" height="150" rx="14" class="card"/>
+    <circle cx="808" cy="120" r="13" fill="#15803d"/><text x="808" y="125" text-anchor="middle" class="num">4</text>
+    <text x="830" y="125" class="h">选择 SMS Collector</text>
+    <text x="802" y="154" class="p">「下一步」→ 选择快捷指令</text>
+    <text x="802" y="176" class="p">选中已导入的 SMS Collector</text>
+    <text x="802" y="198" class="p">「完成」保存自动化</text>
+    <text x="802" y="220" class="tip">用另一台手机发短信验证</text>
+  </g>
+
+  <path class="arrow" d="M252,167 L278,167"/>
+  <path class="arrow" d="M502,167 L528,167"/>
+  <path class="arrow" d="M752,167 L778,167"/>
+
+  <text x="32" y="278" class="p">触发条件示例：「信息包含『验证码』」比「所有信息」更省流量，也更不容易把闲聊内容写进剪贴板。</text>
+</svg>

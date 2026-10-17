@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="820" viewBox="0 0 900 820" role="img" aria-labelledby="title desc">
+  <title id="title">SMS Collector 快捷指令动作流</title>
+  <desc id="desc">快捷指令包含配置文本、读取快捷指令输入、获取设备名称、计算毫秒时间戳、POST JSON 到 collect 接口和显示通知等动作。</desc>
+  <defs>
+    <style>
+      .row { fill: #ffffff; stroke: #e2e8f0; stroke-width: 1.2; }
+      .row-blue { fill: #eff6ff; stroke: #bfdbfe; stroke-width: 1.2; }
+      .row-amber { fill: #fffbeb; stroke: #fde68a; stroke-width: 1.2; }
+      .row-green { fill: #ecfdf5; stroke: #bbf7d0; stroke-width: 1.2; }
+      .n { font-family: "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif; font-size: 12px; font-weight: 700; fill: #ffffff; }
+      .t { font-family: "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif; font-size: 15px; font-weight: 600; fill: #0f172a; }
+      .d { font-family: "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif; font-size: 12px; fill: #475569; }
+      .g { font-family: "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif; font-size: 13px; font-weight: 700; fill: #334155; }
+      .h { font-family: "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif; font-size: 20px; font-weight: 700; fill: #0f172a; }
+      .cap { font-family: "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif; font-size: 12px; fill: #64748b; }
+    </style>
+  </defs>
+  <rect x="0" y="0" width="900" height="820" fill="#f8fafc"/>
+  <text x="32" y="40" class="h">SMS Collector 的动作流</text>
+  <text x="32" y="64" class="cap">从上到下执行；编号与快捷指令编辑器中的顺序一致。首次导入时前三个文本动作会作为「导入问题」出现。</text>
+
+  <text x="32" y="100" class="g">① 配置（首次导入时填写）</text>
+  <g>
+    <rect x="32" y="112" width="836" height="48" rx="9" class="row-blue"/>
+    <circle cx="56" cy="136" r="12" fill="#2563eb"/><text x="56" y="141" text-anchor="middle" class="n">1</text>
+    <text x="80" y="132" class="t">文本：服务器地址</text>
+    <text x="80" y="150" class="d">https://YOUR-SERVER.example.com/api/v1/collect（必须 HTTPS）</text>
+  </g>
+  <g>
+    <rect x="32" y="168" width="836" height="48" rx="9" class="row-blue"/>
+    <circle cx="56" cy="192" r="12" fill="#2563eb"/><text x="56" y="197" text-anchor="middle" class="n">2</text>
+    <text x="80" y="188" class="t">文本：X-DCC-Token</text>
+    <text x="80" y="206" class="d">PASTE_YOUR_TOKEN_HERE（与服务端 API_SECRET_TOKEN 一致）</text>
+  </g>
+  <g>
+    <rect x="32" y="224" width="836" height="48" rx="9" class="row-blue"/>
+    <circle cx="56" cy="248" r="12" fill="#2563eb"/><text x="56" y="253" text-anchor="middle" class="n">3</text>
+    <text x="80" y="244" class="t">文本：设备 ID</text>
+    <text x="80" y="262" class="d">ios_shortcut_001（仅 A-Z a-z 0-9 . _ : @ -，每台设备唯一）</text>
+  </g>
+
+  <text x="32" y="304" class="g">② 采集与时间戳</text>
+  <g>
+    <rect x="32" y="316" width="836" height="44" rx="9" class="row"/>
+    <circle cx="56" cy="338" r="12" fill="#0f766e"/><text x="56" y="343" text-anchor="middle" class="n">4</text>
+    <text x="80" y="334" class="t">文本：快捷指令输入</text>
+    <text x="80" y="351" class="d">显式读取短信正文，作为 raw_content</text>
+  </g>
+  <g>
+    <rect x="32" y="368" width="836" height="44" rx="9" class="row"/>
+    <circle cx="56" cy="390" r="12" fill="#0f766e"/><text x="56" y="395" text-anchor="middle" class="n">5</text>
+    <text x="80" y="386" class="t">获取设备详细信息：设备名称</text>
+    <text x="80" y="403" class="d">作为 device_name 字段，例如「张三的 iPhone」</text>
+  </g>
+  <g>
+    <rect x="32" y="420" width="836" height="44" rx="9" class="row"/>
+    <circle cx="56" cy="442" r="12" fill="#0f766e"/><text x="56" y="447" text-anchor="middle" class="n">6</text>
+    <text x="80" y="438" class="t">日期：2000-01-01 00:00:00</text>
+    <text x="80" y="455" class="d">作为时间差计算的起点</text>
+  </g>
+  <g>
+    <rect x="32" y="472" width="836" height="44" rx="9" class="row"/>
+    <circle cx="56" cy="494" r="12" fill="#0f766e"/><text x="56" y="499" text-anchor="middle" class="n">7</text>
+    <text x="80" y="490" class="t">获取时间段：秒</text>
+    <text x="80" y="507" class="d">计算 2000-01-01 到当前时间的秒数</text>
+  </g>
+  <g>
+    <rect x="32" y="524" width="836" height="44" rx="9" class="row"/>
+    <circle cx="56" cy="546" r="12" fill="#0f766e"/><text x="56" y="551" text-anchor="middle" class="n">8</text>
+    <text x="80" y="542" class="t">计算：+ 946684800</text>
+    <text x="80" y="559" class="d">换算为 Unix 秒（2000-01-01 的 Unix 秒偏移）</text>
+  </g>
+  <g>
+    <rect x="32" y="576" width="836" height="44" rx="9" class="row"/>
+    <circle cx="56" cy="598" r="12" fill="#0f766e"/><text x="56" y="603" text-anchor="middle" class="n">9</text>
+    <text x="80" y="594" class="t">计算：× 1000</text>
+    <text x="80" y="611" class="d">换算为毫秒时间戳，写入 timestamp 字段</text>
+  </g>
+
+  <text x="32" y="660" class="g">③ 上报与反馈</text>
+  <g>
+    <rect x="32" y="672" width="836" height="52" rx="9" class="row-green"/>
+    <circle cx="56" cy="698" r="12" fill="#15803d"/><text x="56" y="703" text-anchor="middle" class="n">10</text>
+    <text x="80" y="692" class="t">获取 URL 内容：POST /api/v1/collect</text>
+    <text x="80" y="711" class="d">请求体类型 JSON；Header 带 X-DCC-Token；超时或失败由快捷指令提示错误</text>
+  </g>
+  <g>
+    <rect x="32" y="734" width="836" height="52" rx="9" class="row-amber"/>
+    <circle cx="56" cy="760" r="12" fill="#b45309"/><text x="56" y="765" text-anchor="middle" class="n">11</text>
+    <text x="80" y="754" class="t">显示通知：短信已上报到网络剪贴板</text>
+    <text x="80" y="773" class="d">仅本机提示，不代表服务端已提取到验证码；结果以后台/接口为准</text>
+  </g>
+  <text x="32" y="808" class="cap">时间戳仅用于服务端合理性校验；剪贴板的 updated_at 与排序始终以服务端接收时间为准（缺陷 23 的既定语义）。</text>
+</svg>

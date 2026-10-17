@@ -1,0 +1,2 @@
+1e1753e3aae94e299f4655ca9f18f3d842ade0788a29285d9c69f0c660398b95  sms-collector.shortcut
+5dcf6d1dd72b985c98a117fe158f298d80f2f769c054d0b3225094fd7f7116d6  sms-collector.source.plist

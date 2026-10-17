@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="320" viewBox="0 0 1040 320" role="img" aria-labelledby="title desc">
+  <title id="title">短信到网络剪贴板的端到端链路</title>
+  <desc id="desc">iPhone 收到短信后，个人自动化触发快捷指令，快捷指令把短信内容组装成 JSON 并 POST 到 DCC API，服务端更新网络剪贴板，后台、Webhook 或轮询下游读取最新内容。</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3.5" orient="auto">
+      <path d="M0,0 L0,7 L9,3.5 z" fill="#64748b"/>
+    </marker>
+    <style>
+      .box { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.5; }
+      .box-blue { fill: #eff6ff; stroke: #93c5fd; stroke-width: 1.5; }
+      .box-green { fill: #ecfdf5; stroke: #86efac; stroke-width: 1.5; }
+      .box-amber { fill: #fffbeb; stroke: #fcd34d; stroke-width: 1.5; }
+      .label { font-family: "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif; font-size: 17px; font-weight: 600; fill: #0f172a; }
+      .sub { font-family: "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif; font-size: 13px; fill: #475569; }
+      .step { font-family: "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif; font-size: 12px; font-weight: 700; fill: #ffffff; }
+      .arrow { stroke: #64748b; stroke-width: 2; fill: none; marker-end: url(#arrow); }
+      .caption { font-family: "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif; font-size: 13px; fill: #64748b; }
+    </style>
+  </defs>
+  <rect x="0" y="0" width="1040" height="320" fill="#f8fafc"/>
+  <text x="32" y="40" class="label" font-size="20">收到短信 → 网络剪贴板：一次完整链路</text>
+  <text x="32" y="64" class="caption">iOS 侧零开发，全部由「快捷指令 + 个人自动化」完成；服务端沿用 POST /api/v1/collect 契约。</text>
+
+  <g>
+    <rect x="32" y="100" width="150" height="88" rx="12" class="box-blue"/>
+    <circle cx="56" cy="124" r="12" fill="#2563eb"/><text x="56" y="129" text-anchor="middle" class="step">1</text>
+    <text x="76" y="129" class="label">iPhone 短信</text>
+    <text x="48" y="156" class="sub">收到一条新短信</text>
+    <text x="48" y="174" class="sub">发件人 / 正文</text>
+  </g>
+
+  <g>
+    <rect x="222" y="100" width="170" height="88" rx="12" class="box"/>
+    <circle cx="246" cy="124" r="12" fill="#0f766e"/><text x="246" y="129" text-anchor="middle" class="step">2</text>
+    <text x="266" y="129" class="label">个人自动化</text>
+    <text x="238" y="156" class="sub">信息触发 · 立即运行</text>
+    <text x="238" y="174" class="sub">关闭运行通知</text>
+  </g>
+
+  <g>
+    <rect x="432" y="100" width="170" height="88" rx="12" class="box-amber"/>
+    <circle cx="456" cy="124" r="12" fill="#b45309"/><text x="456" y="129" text-anchor="middle" class="step">3</text>
+    <text x="476" y="129" class="label">快捷指令</text>
+    <text x="448" y="156" class="sub">读取快捷指令输入</text>
+    <text x="448" y="174" class="sub">组装 JSON 字典</text>
+  </g>
+
+  <g>
+    <rect x="642" y="100" width="170" height="88" rx="12" class="box-green"/>
+    <circle cx="666" cy="124" r="12" fill="#15803d"/><text x="666" y="129" text-anchor="middle" class="step">4</text>
+    <text x="686" y="129" class="label">DCC API</text>
+    <text x="658" y="156" class="sub">POST /api/v1/collect</text>
+    <text x="658" y="174" class="sub">X-DCC-Token 鉴权</text>
+  </g>
+
+  <g>
+    <rect x="852" y="100" width="156" height="88" rx="12" class="box-green"/>
+    <circle cx="876" cy="124" r="12" fill="#15803d"/><text x="876" y="129" text-anchor="middle" class="step">5</text>
+    <text x="896" y="129" class="label">网络剪贴板</text>
+    <text x="868" y="156" class="sub">服务端原子更新</text>
+    <text x="868" y="174" class="sub">默认 30 分钟 TTL</text>
+  </g>
+
+  <path class="arrow" d="M182,144 L218,144"/>
+  <path class="arrow" d="M392,144 L428,144"/>
+  <path class="arrow" d="M602,144 L638,144"/>
+  <path class="arrow" d="M812,144 L848,144"/>
+
+  <text x="200" y="136" class="caption" text-anchor="middle">触发</text>
+  <text x="410" y="136" class="caption" text-anchor="middle">运行</text>
+  <text x="620" y="136" class="caption" text-anchor="middle">上报</text>
+  <text x="830" y="136" class="caption" text-anchor="middle">写入</text>
+
+  <rect x="32" y="228" width="976" height="58" rx="10" fill="#ffffff" stroke="#e2e8f0"/>
+  <text x="52" y="252" class="sub" font-weight="600" fill="#334155">下游读取方式</text>
+  <text x="52" y="272" class="sub">GET /api/v1/clipboard/latest（Header 鉴权、ETag 条件轮询） · 管理后台仪表盘 · Webhook 异步分发（按配置）</text>
+  <text x="32" y="308" class="caption">说明：快捷指令只负责上报；「剪贴板更新」发生在服务端，iPhone 本地不会自动改写剪贴板。</text>
+</svg>

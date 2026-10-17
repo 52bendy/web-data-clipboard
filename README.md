@@ -20,7 +20,7 @@ npm run lint
 
 - `backend/`：后端 API、剪贴板存储服务、本地开发服务器及管理前端静态资源落点。
 - `android-client/`：Android Kotlin 采集端；Gradle 工程由后续子需求建设。
-- `ios-scripts/`：iOS 快捷指令接入包与教程，由后续子需求建设。
+- `ios-scripts/`：iOS 快捷指令接入包与图文教程（REQ-202610-1267），见 [ios-scripts/README.md](ios-scripts/README.md)。
 
 ## 技术决策与偏差记录
 
