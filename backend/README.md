@@ -29,6 +29,8 @@ variables, CSRF handling and deployment-layer guidance.
 
 Run `npm install` at the repository root, then `npm run dev`. `GET /api/v1/health`, `POST /api/v1/collect`, `GET /api/v1/logs` and `GET /api/v1/stats` (below) are live; the clipboard, devices, and webhook routes are added by their respective requirements. Local environment variables are documented in `.env.example`.
 
+Run `npm install` at the repository root, then `npm run dev`. `GET /api/v1/health`, `POST /api/v1/collect`, and `GET /api/v1/devices` are live; the clipboard and webhook routes are added by their respective requirements. Local environment variables are documented in `.env.example`.
+
 ## Clipboard storage service (REQ-202610-1255)
 
 `src/services/` holds the platform-decoupled clipboard state:
@@ -52,6 +54,31 @@ Environment variables:
 | `CLIPBOARD_HISTORY_MAX_ENTRIES` | `500` | History retention by count (0 = unlimited) |
 | `CLIPBOARD_HISTORY_TTL_MS` | `86400000` | History retention by age (0 = unlimited) |
 | `CLIPBOARD_MAINTENANCE_INTERVAL_MS` | `60000` | Expiry sweep interval of the dev server |
+
+## Device management API (REQ-202610-1257)
+
+`GET /api/v1/devices` returns the registered device list and aggregate online/offline counts. It requires the shared `X-DCC-Token` header; query-string tokens are not accepted. Devices are automatically registered or refreshed only after a collect report has successfully updated the clipboard. Registry write failures are logged and do not fail an otherwise successful collection.
+
+Each device contains `device_id`, `device_name`, `platform`, `first_seen`, `last_seen`, and `online`. Timestamps are server-assigned ISO 8601 values; client timestamps do not affect device activity. The list is ordered by `last_seen` descending, then `device_id` ascending. `online` is true when the report was received within the configured threshold, including exactly at the threshold; future timestamps are considered online. Empty registries return HTTP 200 with an empty list and zero counts.
+
+Success envelope:
+
+```json
+{
+  "code": 200,
+  "message": "Devices retrieved successfully",
+  "data": {
+    "devices": [],
+    "stats": { "total": 0, "online": 0, "offline": 0, "online_threshold_ms": 86400000 }
+  }
+}
+```
+
+Missing or invalid credentials return 401; non-GET methods return 405, using the shared `{ code, message, data: null }` error envelope. The admin device list in REQ-202610-1262 should consume this contract; no admin page is included here, so UI integration remains for that requirement.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `DEVICE_ONLINE_THRESHOLD_MS` | `86400000` | Online window in milliseconds; positive integers only, invalid values fall back to 24 hours |
 
 ## Verification code extraction (REQ-202610-1254)
 

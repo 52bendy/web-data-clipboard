@@ -127,6 +127,7 @@ export function validateCollectPayload(
 export function createCollectService({
   clipboardStore,
   collectionLogStore = null,
+  deviceRegistry = null,
   extract,
   dispatch = async () => ({ dispatched: 0 }),
   logger = null,
@@ -186,6 +187,26 @@ export function createCollectService({
       } catch (error) {
         logger?.error('collect.log_failed', {
           collection_id: collectionId,
+          error: String(error),
+        });
+      }
+    }
+
+    // Device registry (REQ-202610-1257): registration failures are isolated
+    // so a registry problem never rejects an accepted collection.
+    if (deviceRegistry) {
+      try {
+        const device = await deviceRegistry.touch(payload);
+        logger?.info(device.created ? 'device.registered' : 'device.updated', {
+          device_id: payload.device_id,
+        });
+      } catch (error) {
+        logger?.error('device.register_failed', {
+          device_id: payload.device_id,
+          error: String(error),
+        });
+      }
+    }
           error: String(error),
         });
       }

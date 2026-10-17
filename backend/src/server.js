@@ -5,6 +5,7 @@ import { health } from '../api/v1/health.js';
 import { createCollectHandler } from '../api/v1/collect.js';
 import { createLogsHandler } from '../api/v1/logs.js';
 import { createStatsHandler } from '../api/v1/stats.js';
+import { createDevicesHandler } from '../api/v1/devices.js';
 import { createAdmin, isManagementApiPath } from './admin/index.js';
 import { createServices } from './services/index.js';
 import { authorize } from './middleware/auth.js';
@@ -116,6 +117,10 @@ export function buildRoutes({ config, services, logger }) {
   const collect = createCollectHandler({ config, services, logger });
   const logs = createLogsHandler({ config, services, logger });
   const stats = createStatsHandler({ config, services, logger });
+  const devices = createDevicesHandler({
+    deviceRegistry: services.deviceRegistry,
+    config,
+  });
   return [
     {
       method: 'POST',
@@ -125,6 +130,7 @@ export function buildRoutes({ config, services, logger }) {
     },
     { method: 'GET', path: '/api/v1/logs', auth: false, handler: logs },
     { method: 'GET', path: '/api/v1/stats', auth: false, handler: stats },
+    { method: 'GET', path: '/api/v1/devices', auth: true, handler: devices },
   ];
 }
 

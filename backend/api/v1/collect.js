@@ -30,6 +30,7 @@ export function createCollectHandler({
   const collectService = createCollectService({
     clipboardStore: services.clipboardStore,
     collectionLogStore: services.collectionLogStore,
+    deviceRegistry: services.deviceRegistry,
     extract: (text) =>
       extractCode(text, { autoExtract: config.autoExtract !== false }),
     dispatch,
