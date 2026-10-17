@@ -2,6 +2,7 @@ import { createServer as createHttpServer } from 'node:http';
 import { pathToFileURL } from 'node:url';
 import { getConfig } from './config.js';
 import { health } from '../api/v1/health.js';
+import { createClipboardLatestHandler } from '../api/v1/clipboard-latest.js';
 import { createCollectHandler } from '../api/v1/collect.js';
 import { createLogsHandler } from '../api/v1/logs.js';
 import { createStatsHandler } from '../api/v1/stats.js';
@@ -134,7 +135,7 @@ async function send(response, result) {
 }
 
 /** Registers every backend route that has landed so far. */
-export function buildRoutes({ config, services, logger }) {
+export function buildRoutes({ config, services, logger, now = Date.now }) {
   const collect = createCollectHandler({ config, services, logger });
   const logs = createLogsHandler({
     config,
@@ -154,12 +155,23 @@ export function buildRoutes({ config, services, logger }) {
   });
   const adminDevices = createAdminDevicesHandler({ services, config });
   const settings = createAdminSettingsHandlers({ services, logger });
+  const clipboardLatest = createClipboardLatestHandler({
+    config,
+    services,
+    now,
+  });
   return [
     {
       method: 'POST',
       path: '/api/v1/collect',
       auth: false,
       handler: rateLimit({ config })(collect),
+    },
+    {
+      method: 'GET',
+      path: '/api/v1/clipboard/latest',
+      auth: true,
+      handler: clipboardLatest,
     },
     { method: 'GET', path: '/api/v1/logs', auth: true, handler: logs },
     { method: 'GET', path: '/api/v1/stats', auth: true, handler: stats },
@@ -184,10 +196,11 @@ export function createServer({
   logger = createLogger(),
   routes = null,
   adminOptions,
+  now = Date.now,
 } = {}) {
   const appServices = services ?? createServices({ config, logger });
   const appRoutes =
-    routes ?? buildRoutes({ config, services: appServices, logger });
+    routes ?? buildRoutes({ config, services: appServices, logger, now });
 
   // Sweep expired clipboard entries and enforce log retention so neither
   // store relies on reads alone (§8.2). The timer must not keep the process

@@ -9,7 +9,10 @@ const messages = {
   500: 'Internal server error.',
 };
 
-export function errorResponse(status, message = messages[status] || messages[500]) {
+export function errorResponse(
+  status,
+  message = messages[status] || messages[500],
+) {
   return new Response(JSON.stringify({ code: status, message, data: null }), {
     status,
     headers: { 'content-type': 'application/json; charset=utf-8' },

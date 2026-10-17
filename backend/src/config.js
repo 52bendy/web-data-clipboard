@@ -52,7 +52,10 @@ export function getConfig(env = process.env) {
   if (enforceHttps !== undefined && !['true', 'false'].includes(enforceHttps)) {
     throw new Error('ENFORCE_HTTPS must be true or false.');
   }
-  if (rateLimitEnabled !== undefined && !['true', 'false'].includes(rateLimitEnabled)) {
+  if (
+    rateLimitEnabled !== undefined &&
+    !['true', 'false'].includes(rateLimitEnabled)
+  ) {
     throw new Error('RATE_LIMIT_ENABLED must be true or false.');
   }
   if (adminCookieSecure !== undefined && !['true', 'false', 'auto'].includes(adminCookieSecure)) {
