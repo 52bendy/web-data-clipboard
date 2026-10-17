@@ -20,12 +20,24 @@ function nonNegativeInt(value, fallback) {
 }
 
 export function getConfig(env = process.env) {
+  const driver = env.STORAGE_DRIVER || 'memory';
+  if (driver !== 'memory' && driver !== 'upstash') {
+    throw new Error(`Unsupported storage type: ${driver}`);
+  }
+  const upstashUrl = env.UPSTASH_REDIS_REST_URL;
+  const upstashToken = env.UPSTASH_REDIS_REST_TOKEN;
+  if (driver === 'upstash' && (!upstashUrl || !upstashToken)) {
+    throw new Error(
+      'STORAGE_DRIVER=upstash requires UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN',
+    );
+  }
   return {
     port: positiveInt(env.PORT, DEFAULT_PORT),
     storage: {
-      // Only "memory" is implemented until the runtime selection lands
-      // (REQ-202610-1251); business layers stay unchanged when it changes.
-      driver: env.STORAGE_DRIVER || 'memory',
+      driver,
+      upstashUrl,
+      upstashToken,
+      keyPrefix: env.STORAGE_KEY_PREFIX || 'dcc:',
     },
     clipboard: {
       // TTL of the latest clipboard record; default 30 minutes (§8.2).

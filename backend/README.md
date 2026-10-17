@@ -12,22 +12,27 @@ The backend shares its request handler between the local `node src/server.js` de
 
 `src/services/` holds the platform-decoupled clipboard state:
 
-- `storage/` — KV-style storage abstraction (`get` / `set` / `delete` / `update` / `purgeExpired`; contract documented in `storage/index.js`). The `memory` adapter serves local development and tests; KV/Redis adapters plug in with the runtime selection (REQ-202610-1251) without touching the business layer.
+- `storage/` — KV-style storage abstraction (`get` / `set` / `delete` / `update` / `purgeExpired`; contract documented in `storage/index.js`). The `memory` adapter remains the local-development and test default; `upstash` uses Redis REST directly without an SDK.
 - `clipboard-store.js` — maintains the single latest clipboard record (§7.1) plus an append-only history log for the admin/statistics layer.
 
 Semantics:
 
 - Writes are atomic: concurrent `update` cycles serialize per key, so every accepted write takes the next server-side `seq`; the last one wins as latest and all of them are appended to history.
 - Server receive time is authoritative: `updated_at` and ordering are assigned server-side, client-supplied timestamps/ids are ignored (defect 23).
-- TTL: the latest record expires after `ttlMs` (default 30 minutes); expired reads return "absent" (`null`) and expired data is purged lazily on read, by the maintenance sweep, or by `purgeExpired()`.
+- TTL: the latest record expires after `ttlMs` (default 30 minutes); expired reads return "absent" (`null`). Upstash applies expiry natively with Redis TTL; its `purgeExpired()` returns `0` because Redis handles expiry. Memory entries are purged lazily on read, by the maintenance sweep, or by `purgeExpired()`.
 - History retention is configurable by count and age (`0` = unlimited) and is trimmed on write and on purge.
 
 Environment variables:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `STORAGE_DRIVER` | `memory` | Storage adapter (`memory` only until REQ-202610-1251) |
+| `STORAGE_DRIVER` | `memory` | Storage adapter: `memory` or `upstash` |
+| `UPSTASH_REDIS_REST_URL` | — | Upstash Redis REST URL (required for `upstash`) |
+| `UPSTASH_REDIS_REST_TOKEN` | — | Upstash Redis REST token (required for `upstash`) |
+| `STORAGE_KEY_PREFIX` | `dcc:` | Prefix for all Redis keys, including update locks |
 | `CLIPBOARD_TTL_MS` | `1800000` | Latest-record TTL |
 | `CLIPBOARD_HISTORY_MAX_ENTRIES` | `500` | History retention by count (0 = unlimited) |
 | `CLIPBOARD_HISTORY_TTL_MS` | `86400000` | History retention by age (0 = unlimited) |
 | `CLIPBOARD_MAINTENANCE_INTERVAL_MS` | `60000` | Expiry sweep interval of the dev server |
+
+With `STORAGE_DRIVER=upstash`, both Upstash credentials are required and startup fails fast if either is missing. `update` uses a per-key distributed Redis lock (`SET NX PX`) with a unique token and compare-and-delete release, so concurrent service instances serialize read-modify-write operations. Lock acquisition retries at most 200 times (25 ms between attempts); the lock expires after 5 seconds if a process exits unexpectedly.

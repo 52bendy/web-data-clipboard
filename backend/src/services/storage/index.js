@@ -1,4 +1,5 @@
 import { createMemoryStorage } from './memory-storage.js';
+import { createUpstashStorage } from './upstash-storage.js';
 
 /**
  * Storage adapter contract — a small KV interface that business services rely
@@ -20,11 +21,35 @@ import { createMemoryStorage } from './memory-storage.js';
  * Values must be JSON-serializable. Adapters return defensive copies so
  * callers can never observe or mutate a torn intermediate state.
  */
-export function createStorage({ type = 'memory', now = Date.now } = {}) {
+export function createStorage({
+  type = 'memory',
+  now = Date.now,
+  url,
+  token,
+  keyPrefix,
+  fetchImpl,
+  lockTtlMs,
+  lockRetryMs,
+  lockMaxAttempts,
+  timeoutMs,
+} = {}) {
   if (type === 'memory') {
     return createMemoryStorage({ now });
+  }
+  if (type === 'upstash') {
+    return createUpstashStorage({
+      url,
+      token,
+      keyPrefix,
+      fetchImpl,
+      now,
+      lockTtlMs,
+      lockRetryMs,
+      lockMaxAttempts,
+      timeoutMs,
+    });
   }
   throw new Error(`Unsupported storage type: ${type}`);
 }
 
-export { createMemoryStorage };
+export { createMemoryStorage, createUpstashStorage };

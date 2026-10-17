@@ -8,6 +8,9 @@ import { createClipboardStore } from './clipboard-store.js';
 export function createServices({ config = {}, now = Date.now } = {}) {
   const storage = createStorage({
     type: config.storage?.driver ?? 'memory',
+    url: config.storage?.upstashUrl,
+    token: config.storage?.upstashToken,
+    keyPrefix: config.storage?.keyPrefix,
     now,
   });
   const clipboardConfig = config.clipboard ?? {};
