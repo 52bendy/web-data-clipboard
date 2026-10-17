@@ -80,6 +80,9 @@ export function getConfig(env = process.env) {
         DEFAULT_MAINTENANCE_INTERVAL_MS,
       ),
     },
+    devices: {
+      onlineThresholdMs: positiveInt(env.DEVICE_ONLINE_THRESHOLD_MS, 86_400_000),
+    },
     collect: {
       // raw_content length cap (characters); longer payloads are rejected 400.
       maxRawContentLength: positiveInt(

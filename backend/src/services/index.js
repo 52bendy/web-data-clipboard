@@ -1,5 +1,6 @@
 import { createStorage } from './storage/index.js';
 import { createClipboardStore } from './clipboard-store.js';
+import { createDeviceRegistry } from './device-registry.js';
 
 /**
  * Builds the backend service graph from configuration. HTTP routes consume
@@ -18,5 +19,6 @@ export function createServices({ config = {}, now = Date.now } = {}) {
     historyMaxAgeMs: clipboardConfig.historyMaxAgeMs,
     now,
   });
-  return { storage, clipboardStore };
+  const deviceRegistry = createDeviceRegistry({ storage, now });
+  return { storage, clipboardStore, deviceRegistry };
 }

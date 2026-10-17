@@ -122,6 +122,7 @@ export function validateCollectPayload(
  */
 export function createCollectService({
   clipboardStore,
+  deviceRegistry = null,
   extract,
   dispatch = async () => ({ dispatched: 0 }),
   logger = null,
@@ -159,6 +160,20 @@ export function createCollectService({
       },
     });
     log('collect.clipboard_updated', { clipboard_id: record.clipboard_id });
+
+    if (deviceRegistry) {
+      try {
+        const device = await deviceRegistry.touch(payload);
+        logger?.info(device.created ? 'device.registered' : 'device.updated', {
+          device_id: payload.device_id,
+        });
+      } catch (error) {
+        logger?.error('device.register_failed', {
+          device_id: payload.device_id,
+          error: String(error),
+        });
+      }
+    }
 
     // Fire-and-forget (§4.1.1 step 4): downstream delivery must neither block
     // nor fail the device report; the dispatcher records its own failures.

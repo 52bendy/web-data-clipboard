@@ -2,6 +2,7 @@ import { createServer as createHttpServer } from 'node:http';
 import { getConfig } from './config.js';
 import { health } from '../api/v1/health.js';
 import { createCollectHandler } from '../api/v1/collect.js';
+import { createDevicesHandler } from '../api/v1/devices.js';
 import { createServices } from './services/index.js';
 import { errorResponse } from './middleware/errors.js';
 import { createLogger } from './utils/logger.js';
@@ -19,9 +20,14 @@ export function createApp({
   routes = [],
 } = {}) {
   const collect = createCollectHandler({ config, services, logger });
+  const devices = createDevicesHandler({
+    deviceRegistry: services.deviceRegistry,
+    config,
+  });
   const protectedCollect = rateLimit({ config })(collect);
   const builtInRoutes = [
     { method: 'POST', path: '/api/v1/collect', auth: false, handler: protectedCollect },
+    { method: 'GET', path: '/api/v1/devices', auth: true, handler: devices },
     ...routes.filter((route) => route.path !== '/api/v1/health'),
   ];
 
@@ -38,7 +44,10 @@ export function createApp({
       if (request.method === 'GET' && url.pathname === '/api/v1/health') {
         return await send(response, health());
       }
-      if (url.pathname === '/api/v1/collect' && request.method !== 'POST') {
+      if (
+        (url.pathname === '/api/v1/collect' && request.method !== 'POST') ||
+        (url.pathname === '/api/v1/devices' && request.method !== 'GET')
+      ) {
         return await send(response, errorResponse(405));
       }
       const route = builtInRoutes.find((item) => item.method === request.method && item.path === url.pathname);
