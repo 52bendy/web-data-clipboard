@@ -34,7 +34,7 @@ All errors use `{ "code": <HTTP status>, "message": "<short English message>", "
 | 429 | Rate limit exceeded | `{"code":429,"message":"Too many requests.","data":null}` |
 | 500 | Unhandled server error | `{"code":500,"message":"Internal server error.","data":null}` |
 
-An expired clipboard item is equivalent to one that never existed: return 404 and do not serve historical content. Historical logs are retained independently of clipboard TTL. The 429 envelope is reserved for the rate limiter implemented by the follow-up security task.
+An expired clipboard item is equivalent to one that never existed: return 404 and do not serve historical content. Historical logs are retained independently of clipboard TTL. The exact boundary, conditional-request behaviour and retention scope are defined in [clipboard-ttl-semantics.md](clipboard-ttl-semantics.md) (REQ-202610-1273). The 429 envelope is reserved for the rate limiter implemented by the follow-up security task.
 
 ## Admin surface
 

@@ -4,6 +4,9 @@
 consumers (PC scripts, bots, desktop tools). It implements PRD §4.1.2 with the
 security decisions from defects 21 and 24.
 
+The normative TTL/expiry contract is
+[clipboard-ttl-semantics.md](clipboard-ttl-semantics.md) (REQ-202610-1273).
+
 ## Authentication
 
 Send the shared secret in the `X-DCC-Token` header:
@@ -54,13 +57,20 @@ The top-level shape intentionally matches the PRD §4.1.2 example: `code` plus
 
 `expire_in_seconds` is derived from the configured `CLIPBOARD_TTL_MS` (default
 30 minutes per §8.2) and the server-assigned `updated_at`, not from a
-client-provided timestamp.
+client-provided timestamp. It is `ceil((updated_at + CLIPBOARD_TTL_MS - now) /
+1000)`, so a `200` response always reports at least `1`; `0` is never returned.
 
-## Errors and expiry semantics (defect 24)
+## Errors and expiry semantics (defect 24 / REQ-202610-1273)
 
 An absent clipboard and a TTL-expired clipboard are indistinguishable: both
-return `404` with the shared error envelope. Expired data is never served, and
-the history log is not exposed by this endpoint.
+return `404` with the shared error envelope. Expiry is inclusive — at exactly
+`updated_at + CLIPBOARD_TTL_MS` the record is expired. The expiry check runs
+before conditional-request handling, so a stale `If-None-Match` value on an
+expired record returns `404`, never `304`. Expired data is never served, the
+`404` response carries `Cache-Control: no-store` and no ETag/Last-Modified, and
+the clipboard history is not exposed by this endpoint. See
+[clipboard-ttl-semantics.md](clipboard-ttl-semantics.md) for the full contract
+and the history/log retention boundary.
 
 | Status | Condition                        | Body                                                                                                                        |
 | ------ | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
