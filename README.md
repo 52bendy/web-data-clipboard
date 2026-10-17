@@ -16,6 +16,18 @@ npm run lint
 
 服务默认监听 `:3000`，可通过 `PORT` 环境变量覆盖。健康检查返回 HTTP 200 JSON。
 
+全链路联调与冷启动验收：
+
+```sh
+node backend/scripts/e2e-chain.js
+node backend/scripts/cold-start-benchmark.js --runs 6
+node backend/scripts/pc-poll-sync.js --help
+```
+
+验收矩阵与测量口径见
+[backend/docs/acceptance-matrix.md](backend/docs/acceptance-matrix.md)，PC 轮询示例见
+[backend/docs/pc-poll-sync.md](backend/docs/pc-poll-sync.md)。
+
 ## 管理后台
 
 管理后台位于 `/admin`，默认拒绝匿名访问。启动前配置管理员凭据（推荐使用 scrypt 哈希）：
@@ -39,7 +51,8 @@ ADMIN_USERNAME=admin ADMIN_PASSWORD_HASH='scrypt$...' npm run dev
 
 - 后端采用 Node.js + JavaScript ESM，开发服务仅依赖 Node 内置模块，与 Vercel / Cloudflare 部署选型解耦。
 - 管理前端将基于 [shadcn-admin](https://github.com/satnaing/shadcn-admin)；本基线不引入其完整工程，`backend/public/` 作为未来构建产物目录。相较 PRD §3 的静态 `public/` 页面方案，这是负责人指定的模板决策；静态资源落点仍予保留。
-- 健康检查路由已提供；剪贴板存储服务（TTL / 原子更新 / 历史，REQ-202610-1255）落在 `backend/src/services/`，存储抽象层与部署选型解耦（内存实现可本地运行）。短信采集上报接口 `POST /api/v1/collect`（REQ-202610-1253）已实现，串起鉴权、字段校验、提取引擎与剪贴板更新，并预留异步分发挂载点。设备管理接口 `GET /api/v1/devices`（REQ-202610-1257）提供采集成功后的设备自动注册与在线状态查询；剪贴板查询、webhooks 路由与部署配置（`vercel.json` / `wrangler.toml`）由对应后续子需求实现。
+- 健康检查、采集上报、剪贴板查询、日志/统计、设备管理、Webhook 配置与投递、管理后台及仪表盘路由均已落地；剪贴板存储服务（TTL / 原子更新 / 历史）位于 `backend/src/services/`，存储抽象层与部署选型解耦（内存实现可本地运行）。
+- 全链路验收脚本、PC 轮询同步示例和验收矩阵位于 `backend/scripts/` 与 `backend/docs/`；部署配置（`vercel.json` / `wrangler.toml`）仍由对应部署子需求负责。
 - 仓库名为 `web-data-clipboard`，PRD 示例目录名 `data-collection-center` 仅为说明性名称。
 
 ## 规范入口

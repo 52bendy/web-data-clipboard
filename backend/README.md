@@ -2,7 +2,7 @@
 
 Node.js ESM backend and management frontend host. The API routes follow a serverless-friendly layout; `src/server.js` provides the zero-dependency local development server.
 
-Run `npm install` at the repository root, then `npm run dev`. The initial `GET /api/v1/health` route returns JSON. Collection, clipboard, devices, and webhook routes are added by their respective requirements.
+Run `npm install` at the repository root, then `npm run dev`. The initial `GET /api/v1/health` route returns JSON. Collection, clipboard, devices, webhook and admin routes are live.
 
 ## Admin backend
 
@@ -49,13 +49,13 @@ Semantics:
 
 Environment variables:
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `STORAGE_DRIVER` | `memory` | Storage adapter (`memory` only until REQ-202610-1251) |
-| `CLIPBOARD_TTL_MS` | `1800000` | Latest-record TTL |
-| `CLIPBOARD_HISTORY_MAX_ENTRIES` | `500` | History retention by count (0 = unlimited) |
-| `CLIPBOARD_HISTORY_TTL_MS` | `86400000` | History retention by age (0 = unlimited) |
-| `CLIPBOARD_MAINTENANCE_INTERVAL_MS` | `60000` | Expiry sweep interval of the dev server |
+| Variable                            | Default    | Purpose                                               |
+| ----------------------------------- | ---------- | ----------------------------------------------------- |
+| `STORAGE_DRIVER`                    | `memory`   | Storage adapter (`memory` only until REQ-202610-1251) |
+| `CLIPBOARD_TTL_MS`                  | `1800000`  | Latest-record TTL                                     |
+| `CLIPBOARD_HISTORY_MAX_ENTRIES`     | `500`      | History retention by count (0 = unlimited)            |
+| `CLIPBOARD_HISTORY_TTL_MS`          | `86400000` | History retention by age (0 = unlimited)              |
+| `CLIPBOARD_MAINTENANCE_INTERVAL_MS` | `60000`    | Expiry sweep interval of the dev server               |
 
 ## Device management API (REQ-202610-1257)
 
@@ -71,15 +71,20 @@ Success envelope:
   "message": "Devices retrieved successfully",
   "data": {
     "devices": [],
-    "stats": { "total": 0, "online": 0, "offline": 0, "online_threshold_ms": 86400000 }
+    "stats": {
+      "total": 0,
+      "online": 0,
+      "offline": 0,
+      "online_threshold_ms": 86400000
+    }
   }
 }
 ```
 
 Missing or invalid credentials return 401; non-GET methods return 405, using the shared `{ code, message, data: null }` error envelope. The admin device list (REQ-202610-1262) consumes the same registry through `GET /api/admin/devices` and is rendered at `/admin/devices`.
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
+| Variable                     | Default    | Purpose                                                                                     |
+| ---------------------------- | ---------- | ------------------------------------------------------------------------------------------- |
 | `DEVICE_ONLINE_THRESHOLD_MS` | `86400000` | Online window in milliseconds; positive integers only, invalid values fall back to 24 hours |
 
 ## Verification code extraction (REQ-202610-1254)
@@ -106,7 +111,11 @@ curl -i -X POST http://localhost:3000/api/v1/collect \
 {
   "code": 200,
   "message": "Data collected successfully",
-  "data": { "collection_id": "col_1728950400000…", "extracted_code": "839201", "clipboard_updated": true }
+  "data": {
+    "collection_id": "col_1728950400000…",
+    "extracted_code": "839201",
+    "clipboard_updated": true
+  }
 }
 ```
 
@@ -114,13 +123,13 @@ Request fields: `device_id` (1–128 chars of `A-Za-z0-9._:@-`), `device_name` (
 
 Errors use the shared envelope `{ code, message, data: null }`:
 
-| Status | When |
-| --- | --- |
-| 400 | malformed JSON, non-object body, or any field failing validation (message names the field) |
-| 401 | missing, malformed, or wrong `X-DCC-Token` (constant-time compare; also returned when `API_SECRET_TOKEN` is unset) |
-| 405 | any method other than POST on this path |
-| 413 | body larger than `MAX_BODY_BYTES` |
-| 500 | unexpected failure; the error is logged with its `collection_id` |
+| Status | When                                                                                                               |
+| ------ | ------------------------------------------------------------------------------------------------------------------ |
+| 400    | malformed JSON, non-object body, or any field failing validation (message names the field)                         |
+| 401    | missing, malformed, or wrong `X-DCC-Token` (constant-time compare; also returned when `API_SECRET_TOKEN` is unset) |
+| 405    | any method other than POST on this path                                                                            |
+| 413    | body larger than `MAX_BODY_BYTES`                                                                                  |
+| 500    | unexpected failure; the error is logged with its `collection_id`                                                   |
 
 Behaviour notes:
 
@@ -131,11 +140,11 @@ Behaviour notes:
 
 Environment variables:
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `API_SECRET_TOKEN` | *(empty)* | Shared `X-DCC-Token` secret; empty ⇒ all collects rejected |
-| `MAX_RAW_CONTENT_LENGTH` | `4096` | `raw_content` character cap |
-| `MAX_BODY_BYTES` | `65536` | Request body cap |
+| Variable                 | Default   | Purpose                                                    |
+| ------------------------ | --------- | ---------------------------------------------------------- |
+| `API_SECRET_TOKEN`       | _(empty)_ | Shared `X-DCC-Token` secret; empty ⇒ all collects rejected |
+| `MAX_RAW_CONTENT_LENGTH` | `4096`    | `raw_content` character cap                                |
+| `MAX_BODY_BYTES`         | `65536`   | Request body cap                                           |
 
 ## Collection logs, statistics and masking (REQ-202610-1259)
 
@@ -143,17 +152,17 @@ Every accepted collection is appended to a bounded collection log (`src/services
 
 `GET /api/v1/logs` — paginated history, newest first. Requires `X-DCC-Token`.
 
-| Query | Default | Meaning |
-| --- | --- | --- |
-| `page` | `1` | 1-based page number |
-| `page_size` | `20` | Page size, 1–100 |
-| `device` | — | Case-insensitive substring of device id or name |
-| `device_id` | — | Exact device id |
-| `device_name` | — | Case-insensitive device-name substring |
-| `date` | — | Single local day, `YYYY-MM-DD` |
-| `from` / `to` | — | Inclusive local-day range, `YYYY-MM-DD` (mutually exclusive with `date`) |
-| `keyword` | — | Case-insensitive substring across sender, device, raw text, extracted code and collection id |
-| `mask` | server default | Per-request display override: `1`/`true` masks, `0`/`false` shows raw senders |
+| Query         | Default        | Meaning                                                                                      |
+| ------------- | -------------- | -------------------------------------------------------------------------------------------- |
+| `page`        | `1`            | 1-based page number                                                                          |
+| `page_size`   | `20`           | Page size, 1–100                                                                             |
+| `device`      | —              | Case-insensitive substring of device id or name                                              |
+| `device_id`   | —              | Exact device id                                                                              |
+| `device_name` | —              | Case-insensitive device-name substring                                                       |
+| `date`        | —              | Single local day, `YYYY-MM-DD`                                                               |
+| `from` / `to` | —              | Inclusive local-day range, `YYYY-MM-DD` (mutually exclusive with `date`)                     |
+| `keyword`     | —              | Case-insensitive substring across sender, device, raw text, extracted code and collection id |
+| `mask`        | server default | Per-request display override: `1`/`true` masks, `0`/`false` shows raw senders                |
 
 ```json
 {
@@ -210,22 +219,22 @@ Semantics:
 
 Environment variables:
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `MASK_SENDER` | `true` | Mask sender phone numbers in log responses (`false|0` disables) |
-| `LOG_MAX_ENTRIES` | `1000` | Collection-log retention by count (0 = unlimited) |
-| `LOG_MAX_AGE_MS` | `604800000` | Collection-log retention by age (0 = unlimited) |
+| Variable          | Default     | Purpose                                                         |
+| ----------------- | ----------- | --------------------------------------------------------------- |
+| `MASK_SENDER`     | `true`      | Mask sender phone numbers in log responses (`false/0` disables) |
+| `LOG_MAX_ENTRIES` | `1000`      | Collection-log retention by count (0 = unlimited)               |
+| `LOG_MAX_AGE_MS`  | `604800000` | Collection-log retention by age (0 = unlimited)                 |
 
 ## Admin devices, logs and settings (REQ-202610-1262)
 
 The zero-build admin UI lives in `public/admin/` and is served by the admin
 router after session authentication:
 
-| Page | Module |
-| --- | --- |
-| `/admin/devices` | Device list: ID, name, platform, last report time and online/offline highlighting; searchable and refreshed every 15 seconds. |
-| `/admin/logs` | Log board: device/date/keyword filters, pagination, page size, optional raw sender display. |
-| `/admin/settings` | Settings panel: auto-extract toggle, masking toggle, Webhook URL, masked Token display and Token reset. |
+| Page              | Module                                                                                                                        |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `/admin/devices`  | Device list: ID, name, platform, last report time and online/offline highlighting; searchable and refreshed every 15 seconds. |
+| `/admin/logs`     | Log board: device/date/keyword filters, pagination, page size, optional raw sender display.                                   |
+| `/admin/settings` | Settings panel: auto-extract toggle, masking toggle, Webhook URL, masked Token display and Token reset.                       |
 
 All three pages use `public/admin/app.js`, which attaches the session CSRF
 header to state-changing requests and redirects expired sessions to the login
@@ -234,13 +243,13 @@ page. No bundler or runtime dependency is required.
 Admin API (session cookie required; mutating requests also require
 `X-CSRF-Token`):
 
-| Method and path | Purpose |
-| --- | --- |
-| `GET /api/admin/devices` | Device list plus `total` / `online` / `offline` counters. |
-| `GET /api/admin/logs` | Same filters and pagination as `GET /api/v1/logs`. |
-| `GET /api/admin/stats` | Dashboard counters. |
-| `GET /api/admin/settings` | Current settings; the Token is returned masked only. |
-| `PATCH /api/admin/settings` | Update `auto_extract`, `mask_sender` and/or `webhook_url`. |
+| Method and path               | Purpose                                                                                       |
+| ----------------------------- | --------------------------------------------------------------------------------------------- |
+| `GET /api/admin/devices`      | Device list plus `total` / `online` / `offline` counters.                                     |
+| `GET /api/admin/logs`         | Same filters and pagination as `GET /api/v1/logs`.                                            |
+| `GET /api/admin/stats`        | Dashboard counters.                                                                           |
+| `GET /api/admin/settings`     | Current settings; the Token is returned masked only.                                          |
+| `PATCH /api/admin/settings`   | Update `auto_extract`, `mask_sender` and/or `webhook_url`.                                    |
 | `POST /api/admin/token/reset` | Rotate the server Token. Requires `{"confirm":true}`; the new Token is returned exactly once. |
 
 Settings semantics:
@@ -258,8 +267,22 @@ Settings semantics:
 
 Environment variables:
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `AUTO_EXTRACT` | `true` | Initial auto-extract value (`false|0` disables). |
-| `MASK_SENDER` | `true` | Initial masking value. |
-| `DEVICE_ONLINE_THRESHOLD_MS` | `86400000` | Online window used by the device list. |
+| Variable                     | Default    | Purpose                                          |
+| ---------------------------- | ---------- | ------------------------------------------------ |
+| `AUTO_EXTRACT`               | `true`     | Initial auto-extract value (`false/0` disables). |
+| `MASK_SENDER`                | `true`     | Initial masking value.                           |
+| `DEVICE_ONLINE_THRESHOLD_MS` | `86400000` | Online window used by the device list.           |
+
+## End-to-end acceptance and downstream examples (REQ-202610-1268)
+
+| Entry                                                   | Purpose                                                                                                                                                       |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `node backend/scripts/e2e-chain.js`                     | Scripted chain: simulated device report → clipboard → query API → Webhook forwarding, plus invalid token / 429 / 413 / expired 404 / bad JSON negative cases. |
+| `node backend/scripts/pc-poll-sync.js --help`           | PC-side polling example (PRD §7.2.1): ETag polling → system clipboard → desktop notification.                                                                 |
+| `node backend/scripts/cold-start-benchmark.js --runs 6` | Reproducible cold-start measurement (`spawn` → first `/api/v1/health` 200).                                                                                   |
+| `npm test`                                              | Includes `e2e-chain.test.js` and `pc-poll-sync.test.js`, so the acceptance chain runs in CI.                                                                  |
+
+The acceptance matrix (functional / performance / security / compatibility) and
+the §8.3 cold-start measurement definition are in
+[docs/acceptance-matrix.md](docs/acceptance-matrix.md). PC usage and platform
+dependencies are documented in [docs/pc-poll-sync.md](docs/pc-poll-sync.md).
