@@ -13,6 +13,7 @@ import {
   createAdminSettingsHandlers,
 } from '../api/admin/management.js';
 import { createAdmin, isManagementApiPath } from './admin/index.js';
+import { createDashboardApi } from './admin/dashboard-api.js';
 import { createServices } from './services/index.js';
 import { authorize } from './middleware/auth.js';
 import { errorResponse } from './middleware/errors.js';
@@ -153,12 +154,19 @@ export function buildRoutes({ config, services, logger, now = Date.now }) {
   const webhooks = createWebhookHandlers({ config, services, logger, now });
   const adminDevices = createAdminDevicesHandler({ services, config });
   const settings = createAdminSettingsHandlers({ services, logger });
+  // The dashboard aggregate needs both stores. Keep route registration
+  // tolerant of partial service mocks (unit tests mount only what they use);
+  // production always passes the full service container.
+  const dashboard =
+    services?.collectionLogStore && services?.clipboardStore
+      ? createDashboardApi({ config, services, now })
+      : null;
   const clipboardLatest = createClipboardLatestHandler({
     config,
     services,
     now,
   });
-  return [
+  const routes = [
     {
       method: 'POST',
       path: '/api/v1/collect',
@@ -228,6 +236,15 @@ export function buildRoutes({ config, services, logger, now = Date.now }) {
       handler: settings.resetToken,
     },
   ];
+  if (dashboard) {
+    routes.splice(12, 0, {
+      method: 'GET',
+      path: '/api/admin/dashboard',
+      admin: true,
+      handler: dashboard,
+    });
+  }
+  return routes;
 }
 
 export function createServer({

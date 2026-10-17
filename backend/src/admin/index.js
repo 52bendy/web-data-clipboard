@@ -285,6 +285,10 @@ export function createAdmin({
         .replaceAll(
           '{{EXPIRES_AT}}',
           escapeHtml(session ? new Date(session.expiresAt).toISOString() : ''),
+        )
+        .replaceAll(
+          '{{REFRESH_INTERVAL_MS}}',
+          String(config.dashboard?.refreshIntervalMs ?? 15000),
         );
       return htmlResponse(200, html);
     }

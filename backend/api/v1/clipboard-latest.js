@@ -59,21 +59,16 @@ export function createClipboardLatestHandler({
     const record = await services.clipboardStore.getLatest();
     if (!record) return errorResponse(404, NO_DATA_MESSAGE);
 
-    const updatedAtMs =
-      typeof record.updated_at === 'number'
-        ? record.updated_at
-        : Date.parse(record.updated_at);
-    if (!Number.isFinite(updatedAtMs)) {
+    const timing = getClipboardTiming(record, { ttlMs, nowMs: now() });
+    if (!timing) {
       return errorResponse(500);
     }
-
     // Storage adapters treat expired entries as absent, but the API also
     // guards here so an adapter that returns stale data cannot leak it.
-    const currentTime = now();
-    const remainingMs = updatedAtMs + ttlMs - currentTime;
-    if (remainingMs <= 0) {
+    if (timing.remainingMs <= 0) {
       return errorResponse(404, NO_DATA_MESSAGE);
     }
+    const { updatedAtMs } = timing;
 
     const etag = `"${updatedAtMs}-${record.clipboard_id}"`;
     const lastModified = new Date(updatedAtMs).toUTCString();
@@ -87,15 +82,10 @@ export function createClipboardLatestHandler({
       return new Response(null, { status: 304, headers: cacheHeaders });
     }
 
-    const data = {
-      content: record.parsed_code ?? record.full_text,
-      type: record.data_type,
-      raw_text: record.full_text,
-      source_device: record.source?.device_name ?? 'unknown',
-      platform: record.source?.platform ?? 'unknown',
-      updated_at: updatedAtMs,
-      expire_in_seconds: Math.ceil(remainingMs / 1000),
-    };
+    const data = buildClipboardPayload(record, {
+      ttlMs,
+      nowMs: timing.nowMs,
+    });
 
     return new Response(JSON.stringify({ code: 200, data }), {
       status: 200,
@@ -104,6 +94,49 @@ export function createClipboardLatestHandler({
         ...cacheHeaders,
       },
     });
+  };
+}
+
+/**
+ * Computes the server-authoritative expiry timing of a clipboard record.
+ * Returns null when the record has no parseable `updated_at`.
+ */
+export function getClipboardTiming(
+  record,
+  { ttlMs = DEFAULT_TTL_MS, nowMs = Date.now() } = {},
+) {
+  if (!record) return null;
+  const updatedAtMs =
+    typeof record.updated_at === 'number'
+      ? record.updated_at
+      : Date.parse(record.updated_at);
+  if (!Number.isFinite(updatedAtMs)) return null;
+  return {
+    updatedAtMs,
+    nowMs,
+    remainingMs: updatedAtMs + ttlMs - nowMs,
+  };
+}
+
+/**
+ * Builds the PRD §4.1.2 clipboard payload shared by the public read API and
+ * the admin dashboard card, so both views cannot drift apart. Returns null for
+ * absent or TTL-expired records; expired content is never returned (defect 24).
+ */
+export function buildClipboardPayload(
+  record,
+  { ttlMs = DEFAULT_TTL_MS, nowMs = Date.now() } = {},
+) {
+  const timing = getClipboardTiming(record, { ttlMs, nowMs });
+  if (!timing || timing.remainingMs <= 0) return null;
+  return {
+    content: record.parsed_code ?? record.full_text,
+    type: record.data_type,
+    raw_text: record.full_text,
+    source_device: record.source?.device_name ?? 'unknown',
+    platform: record.source?.platform ?? 'unknown',
+    updated_at: timing.updatedAtMs,
+    expire_in_seconds: Math.ceil(timing.remainingMs / 1000),
   };
 }
 
