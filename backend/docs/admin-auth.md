@@ -91,7 +91,12 @@ address is used and must be written by the trusted proxy.
 
 The application guard is mandatory and self-contained. Platform-level
 protection (reverse-proxy basic auth, IP allowlist, VPN, or a private
-preview domain) is an **optional defence in depth**, not a replacement:
+preview domain) is an **optional defence in depth**, not a replacement.
+Because the backend exposes SMS history, Token rotation and Webhook settings,
+the admin surface **must be private**: see
+[admin-private-deployment.md](admin-private-deployment.md) for the mandatory
+rules and checklist. No public read-only view is provided; any future one must
+be a separate masked route with its own authentication.
 
 - keep the admin behind HTTPS; set `TRUST_PROXY=true` only when a trusted
   proxy overwrites `X-Forwarded-Proto` and `X-Forwarded-For`;

@@ -18,7 +18,7 @@ npm run lint
 
 ## 管理后台
 
-管理后台位于 `/admin`，默认拒绝匿名访问。启动前配置管理员凭据（推荐使用 scrypt 哈希）：
+管理后台位于 `/admin`，默认拒绝匿名访问。**后台必须部署在私有网络**（VPN、内网或反向代理 IP 白名单），不得直接暴露公网——它可以读取短信原文、轮换服务端 Token 并配置 Webhook。启动前配置管理员凭据（推荐使用 scrypt 哈希）：
 
 ```sh
 node backend/scripts/hash-admin-password.js 'your-strong-password'
@@ -27,7 +27,8 @@ ADMIN_USERNAME=admin ADMIN_PASSWORD_HASH='scrypt$...' npm run dev
 ```
 
 未配置凭据时后台 fail closed；管理 API（devices / webhooks / logs / stats / settings）
-统一要求登录态。详见 [backend/docs/admin-auth.md](backend/docs/admin-auth.md)。
+统一要求登录态。详见 [backend/docs/admin-auth.md](backend/docs/admin-auth.md) 与
+[backend/docs/admin-private-deployment.md](backend/docs/admin-private-deployment.md)。
 
 ## 目录说明
 

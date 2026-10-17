@@ -43,9 +43,11 @@ management API prefixes `/api/v1/devices`, `/api/v1/webhooks`, `/api/v1/logs`,
 `/api/v1/stats`, `/api/v1/settings`) uses a separate login-session scheme
 instead of `X-DCC-Token`. Anonymous access is denied by default; sessions are
 `HttpOnly` cookies with an absolute lifetime, login failures are rate limited,
-and state-changing admin API requests require a CSRF token. See
-[admin-auth.md](admin-auth.md) for the full contract. `X-DCC-Token` is not
-accepted for management APIs.
+and state-changing admin API requests require a CSRF token. The admin surface
+must be deployed on a private network; see
+[admin-private-deployment.md](admin-private-deployment.md) for the mandatory
+rules and checklist. See [admin-auth.md](admin-auth.md) for the full contract.
+`X-DCC-Token` is not accepted for management APIs.
 
 ## HTTPS
 

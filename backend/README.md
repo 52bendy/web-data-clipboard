@@ -7,7 +7,11 @@ Run `npm install` at the repository root, then `npm run dev`. The initial `GET /
 ## Admin backend
 
 The management backend is served from `/admin` and denies anonymous access by
-default. Set credentials before starting the server:
+default. **It must be deployed on a private network** (VPN, private subnet, or
+an IP-allowlisted reverse proxy) because it can read SMS history, rotate the
+server Token, and change the Webhook target. Never expose `/admin` or
+`/api/admin` to the public internet. Set credentials before starting the
+server:
 
 ```sh
 # Recommended: scrypt hash
@@ -25,7 +29,9 @@ Management API prefixes (`/api/v1/devices`, `/api/v1/webhooks`, `/api/v1/logs`,
 their routes are implemented.
 
 See [docs/admin-auth.md](docs/admin-auth.md) for the full contract, environment
-variables, CSRF handling and deployment-layer guidance.
+variables and CSRF handling, and
+[docs/admin-private-deployment.md](docs/admin-private-deployment.md) for the
+mandatory private-deployment checklist and the public-read-only-view rule.
 
 Run `npm install` at the repository root, then `npm run dev`. `GET /api/v1/health`,
 `POST /api/v1/collect`, `GET /api/v1/logs`, `GET /api/v1/stats` and
