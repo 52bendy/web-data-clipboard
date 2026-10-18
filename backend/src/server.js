@@ -1,8 +1,10 @@
 import { createServer as createHttpServer } from 'node:http';
+import { Readable } from 'node:stream';
 import { pathToFileURL } from 'node:url';
 import { getConfig } from './config.js';
 import { health } from '../api/v1/health.js';
 import { createClipboardLatestHandler } from '../api/v1/clipboard-latest.js';
+import { createClipboardStreamHandler } from '../api/v1/clipboard-stream.js';
 import { createCollectHandler } from '../api/v1/collect.js';
 import { createLogsHandler } from '../api/v1/logs.js';
 import { createStatsHandler } from '../api/v1/stats.js';
@@ -18,6 +20,7 @@ import { createServices } from './services/index.js';
 import { authorize } from './middleware/auth.js';
 import { errorResponse } from './middleware/errors.js';
 import { isHttps } from './middleware/httpsEnforce.js';
+import { rejectQueryToken } from './middleware/queryToken.js';
 import { rateLimit } from './middleware/rateLimit.js';
 import { securityHeaders } from './middleware/securityHeaders.js';
 import { createLogger } from './utils/logger.js';
@@ -84,6 +87,13 @@ export function createApp({
           const csrfError = admin.checkCsrf(request, session);
           if (csrfError) return await send(response, csrfError);
         }
+        // Header-only endpoints (e.g. the SSE feed) reject credential-like
+        // query parameters before authentication so a leaked URL token gets a
+        // loud 400 instead of a misleading 401 (defect 21).
+        if (route.queryToken) {
+          const queryTokenDenied = rejectQueryToken(url);
+          if (queryTokenDenied) return await send(response, queryTokenDenied);
+        }
         if (route.auth) {
           // Management APIs (devices / logs / stats / webhooks / settings)
           // move to the admin session once admin credentials are configured
@@ -124,12 +134,30 @@ function matches(route, pathname) {
 }
 
 async function send(response, result) {
-  const body = await result.text();
   for (const [name, value] of result.headers) {
     if (!response.hasHeader(name)) response.setHeader(name, value);
   }
+  // SSE responses must stay open and are streamed frame by frame. Every other
+  // response is buffered first, so a body stream that fails before producing
+  // output still reaches the shared 500 handler instead of aborting the socket.
+  const contentType = result.headers.get('content-type') ?? '';
+  if (!contentType.startsWith('text/event-stream')) {
+    const body = await result.text();
+    response.writeHead(result.status);
+    response.end(body);
+    return;
+  }
   response.writeHead(result.status);
-  response.end(body);
+  if (!result.body) {
+    response.end();
+    return;
+  }
+  const stream = Readable.fromWeb(result.body);
+  stream.on('error', () => {
+    if (!response.writableEnded) response.destroy();
+  });
+  response.on('close', () => stream.destroy());
+  stream.pipe(response);
 }
 
 /** Registers every backend route that has landed so far. */
@@ -166,6 +194,12 @@ export function buildRoutes({ config, services, logger, now = Date.now }) {
     services,
     now,
   });
+  // Partial service mocks used by unit tests may not build the realtime hub;
+  // only register the feed when the full service graph is present.
+  const clipboardStream =
+    services?.clipboardStore && services?.realtimeHub
+      ? createClipboardStreamHandler({ config, services, now })
+      : null;
   const routes = [
     {
       method: 'POST',
@@ -179,6 +213,17 @@ export function buildRoutes({ config, services, logger, now = Date.now }) {
       auth: true,
       handler: clipboardLatest,
     },
+    ...(clipboardStream
+      ? [
+          {
+            method: 'GET',
+            path: '/api/v1/clipboard/stream',
+            auth: true,
+            queryToken: true,
+            handler: clipboardStream,
+          },
+        ]
+      : []),
     { method: 'GET', path: '/api/v1/logs', auth: true, handler: logs },
     { method: 'GET', path: '/api/v1/stats', auth: true, handler: stats },
     { method: 'GET', path: '/api/v1/devices', auth: true, handler: devices },
@@ -237,7 +282,10 @@ export function buildRoutes({ config, services, logger, now = Date.now }) {
     },
   ];
   if (dashboard) {
-    routes.splice(12, 0, {
+    const adminDevicesIndex = routes.findIndex(
+      (route) => route.path === '/api/admin/devices',
+    );
+    routes.splice(adminDevicesIndex === -1 ? routes.length : adminDevicesIndex, 0, {
       method: 'GET',
       path: '/api/admin/dashboard',
       admin: true,

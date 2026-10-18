@@ -27,6 +27,10 @@ const DEFAULT_WEBHOOK_MAX_ATTEMPTS = 3;
 const DEFAULT_WEBHOOK_RETRY_BASE_DELAY_MS = 1000;
 const DEFAULT_WEBHOOK_MAX_CONFIGS = 20;
 const DEFAULT_WEBHOOK_MAX_DELIVERIES = 200;
+/** Realtime SSE feed (REQ-202610-1274): free-tier friendly defaults. */
+const DEFAULT_REALTIME_HEARTBEAT_INTERVAL_MS = 15 * 1000;
+const DEFAULT_REALTIME_MAX_CONNECTIONS = 100;
+const DEFAULT_REALTIME_RETRY_MS = 3 * 1000;
 
 /** Lenient integer parsing for business settings: invalid values fall back. */
 function positiveInt(value, fallback) {
@@ -57,8 +61,15 @@ export function getConfig(env = process.env) {
   const rateLimitPerMinute = Number(env.RATE_LIMIT_PER_MINUTE ?? 30);
   const rateLimitWindowSeconds = Number(env.RATE_LIMIT_WINDOW_SECONDS ?? 60);
   const adminCookieSecure = env.ADMIN_COOKIE_SECURE?.toLowerCase();
+  const realtimeEnabled = env.REALTIME_ENABLED?.toLowerCase();
   if (enforceHttps !== undefined && !['true', 'false'].includes(enforceHttps)) {
     throw new Error('ENFORCE_HTTPS must be true or false.');
+  }
+  if (
+    realtimeEnabled !== undefined &&
+    !['true', 'false'].includes(realtimeEnabled)
+  ) {
+    throw new Error('REALTIME_ENABLED must be true or false.');
   }
   if (
     rateLimitEnabled !== undefined &&
@@ -173,6 +184,26 @@ export function getConfig(env = process.env) {
         env.DASHBOARD_REFRESH_INTERVAL_MS,
         DEFAULT_DASHBOARD_REFRESH_INTERVAL_MS,
       ),
+    },
+    realtime: {
+      // SSE feed (REQ-202610-1274). The defaults are sized for a free-tier
+      // single instance: a small connection cap, a 15s heartbeat and a 3s
+      // client reconnect delay. Set REALTIME_CONNECTION_TTL_MS to force a
+      // clean reconnect before a serverless function's maximum duration.
+      enabled: realtimeEnabled !== 'false',
+      heartbeatIntervalMs: positiveInt(
+        env.REALTIME_HEARTBEAT_INTERVAL_MS,
+        DEFAULT_REALTIME_HEARTBEAT_INTERVAL_MS,
+      ),
+      maxConnections: positiveInt(
+        env.REALTIME_MAX_CONNECTIONS,
+        DEFAULT_REALTIME_MAX_CONNECTIONS,
+      ),
+      retryMs: positiveInt(
+        env.REALTIME_RETRY_MS,
+        DEFAULT_REALTIME_RETRY_MS,
+      ),
+      connectionTtlMs: nonNegativeInt(env.REALTIME_CONNECTION_TTL_MS, 0),
     },
     // 管理后台登录态（REQ-202610-1260，缺陷 20）。未配置任何凭据时后台
     // fail closed：所有管理资源一律拒绝，而不是退回匿名可访问。

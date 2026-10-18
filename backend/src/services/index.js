@@ -1,6 +1,11 @@
 import { createStorage } from './storage/index.js';
 import { createClipboardStore } from './clipboard-store.js';
+import { buildClipboardPayload } from './clipboard-payload.js';
 import { createCollectionLogStore } from './collection-log-store.js';
+import {
+  createRealtimeHub,
+  formatClipboardEventId,
+} from './realtime-hub.js';
 import { createDeviceRegistry } from './device-registry.js';
 import { createSettingsStore } from './settings-store.js';
 import { createDispatcher } from './webhook-dispatcher.js';
@@ -21,6 +26,14 @@ export function createServices({ config = {}, now = Date.now, logger } = {}) {
     type: config.storage?.driver ?? 'memory',
     now,
   });
+  const realtimeConfig = config.realtime ?? {};
+  const realtimeHub = createRealtimeHub({
+    maxConnections: realtimeConfig.maxConnections,
+    heartbeatIntervalMs: realtimeConfig.heartbeatIntervalMs,
+    connectionTtlMs: realtimeConfig.connectionTtlMs,
+    now,
+    logger,
+  });
   const clipboardConfig = config.clipboard ?? {};
   const clipboardStore = createClipboardStore({
     storage,
@@ -28,6 +41,21 @@ export function createServices({ config = {}, now = Date.now, logger } = {}) {
     historyMaxEntries: clipboardConfig.historyMaxEntries,
     historyMaxAgeMs: clipboardConfig.historyMaxAgeMs,
     now,
+    logger,
+    // Every accepted clipboard write becomes a `clipboard.updated` event with
+    // the same §4.1.2 fields as the read API (REQ-202610-1274).
+    onWrite: (record) => {
+      const data = buildClipboardPayload(record, {
+        ttlMs: clipboardConfig.ttlMs,
+        nowMs: now(),
+      });
+      if (!data) return;
+      realtimeHub.publish({
+        id: formatClipboardEventId(record),
+        event: 'clipboard.updated',
+        data,
+      });
+    },
   });
   const deviceRegistry = createDeviceRegistry({ storage, now });
   const logConfig = config.logs ?? {};
@@ -62,6 +90,7 @@ export function createServices({ config = {}, now = Date.now, logger } = {}) {
   return {
     storage,
     clipboardStore,
+    realtimeHub,
     deviceRegistry,
     collectionLogStore,
     settingsStore,
