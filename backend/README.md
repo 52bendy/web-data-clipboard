@@ -42,10 +42,14 @@ their respective requirements. Local environment variables are documented in
 
 Semantics:
 
-- Writes are atomic: concurrent `update` cycles serialize per key, so every accepted write takes the next server-side `seq`; the last one wins as latest and all of them are appended to history.
-- Server receive time is authoritative: `updated_at` and ordering are assigned server-side, client-supplied timestamps/ids are ignored (defect 23).
+- Writes are atomic: concurrent `update` cycles serialize per key, so every accepted write takes the next server-side `seq`; the last committed write wins as latest and all of them are appended to history.
+- Server receive time is authoritative: `received_at` is assigned inside the atomic update and mirrored to `updated_at` for the PRD §4.1.2 contract. Client clocks never influence ordering, TTL or ETags (defect 23).
+- `client_timestamp` is retained only as a reference field. Multi-device conflicts follow **last-arrival-wins**: the write that commits last is latest, regardless of the device clock; each history entry records the `overwrote` snapshot of the record it replaced.
 - TTL: the latest record expires after `ttlMs` (default 30 minutes); expired reads return "absent" (`null`) and expired data is purged lazily on read, by the maintenance sweep, or by `purgeExpired()`.
 - History retention is configurable by count and age (`0` = unlimited) and is trimmed on write and on purge.
+
+The full ordering/conflict contract is documented in
+[docs/clipboard-ordering.md](docs/clipboard-ordering.md).
 
 Environment variables:
 
@@ -135,7 +139,7 @@ Behaviour notes:
 
 - `collection_id` is minted per accepted report as `col_<server epoch ms><6 random digits>`; every accepted report logs `collect.received` / `collect.extracted` / `collect.clipboard_updated` / `collect.responded` (JSON lines via `src/utils/logger.js`) keyed by that id, so a report can be traced across the chain.
 - Dispatch is fire-and-forget: a slow or failing downstream sink never delays or fails the response, and its error is logged as `collect.dispatch_failed`.
-- The clipboard record is written with the server receive time; the device `timestamp` is only validated, never trusted for ordering (defect 23).
+- The clipboard record is written with the server receive time (`received_at`, mirrored to `updated_at`); the device `timestamp` is stored as `client_timestamp` for reference only and never trusted for ordering (defect 23). See [docs/clipboard-ordering.md](docs/clipboard-ordering.md).
 - Rate limiting (30 req/min, §8.1) and HTTPS enforcement are owned by REQ-202610-1252 and layered in front of this handler.
 
 Environment variables:

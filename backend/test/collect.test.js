@@ -33,7 +33,8 @@ const validBody = () => ({
   device_name: '小米 13Pro',
   platform: 'android',
   sender: '+8610086',
-  raw_content: '【中国移动】您的验证码是：839201，5分钟内有效。请勿泄漏给他人。',
+  raw_content:
+    '【中国移动】您的验证码是：839201，5分钟内有效。请勿泄漏给他人。',
   timestamp: NOW - 1000,
 });
 
@@ -102,6 +103,10 @@ test('accepts a valid report and updates the clipboard (§4.1.1)', async () => {
   assert.equal(latest.parsed_code, '839201');
   assert.equal(latest.data_type, 'verification_code');
   assert.equal(latest.full_text, validBody().raw_content);
+  // The device timestamp is kept as a reference only (defect 23).
+  assert.equal(latest.client_timestamp, validBody().timestamp);
+  assert.equal(latest.updated_at, latest.received_at);
+  assert.ok(Number.isFinite(Date.parse(latest.received_at)));
   assert.deepEqual(latest.source, {
     device_name: '小米 13Pro',
     platform: 'android',
@@ -121,6 +126,32 @@ test('stores raw text when no code is extracted', async () => {
   const latest = await services.clipboardStore.getLatest();
   assert.equal(latest.data_type, 'text');
   assert.equal(latest.parsed_code, null);
+});
+
+test('device clock skew never overrides server arrival order (defect 23)', async () => {
+  const { handler, services } = makeHandler();
+  const first = await post(handler, {
+    ...validBody(),
+    raw_content: '验证码 111111，5分钟内有效。',
+    timestamp: NOW + 120_000,
+  });
+  const second = await post(handler, {
+    ...validBody(),
+    raw_content: '验证码 222222，5分钟内有效。',
+    timestamp: NOW - 120_000,
+  });
+  assert.equal(first.status, 200);
+  assert.equal(second.status, 200);
+
+  const latest = await services.clipboardStore.getLatest();
+  assert.equal(latest.parsed_code, '222222');
+  assert.equal(latest.seq, 2);
+  assert.equal(latest.client_timestamp, NOW - 120_000);
+  assert.ok(Number.isFinite(Date.parse(latest.received_at)));
+
+  const history = await services.clipboardStore.getHistory();
+  assert.equal(history.length, 2);
+  assert.equal(history[1].overwrote.clipboard_id, history[0].clipboard_id);
 });
 
 test('rejects a missing or invalid token with the shared 401 envelope', async () => {

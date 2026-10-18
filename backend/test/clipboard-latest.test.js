@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createServer } from '../src/server.js';
 import { getConfig } from '../src/config.js';
 import { createServices } from '../src/services/index.js';
+import { getClipboardTiming } from '../api/v1/clipboard-latest.js';
 
 const TOKEN = 'a-secret-token';
 const RAW_TEXT =
@@ -98,6 +99,21 @@ test('returns the exact PRD §4.1.2 contract with a numeric server updated_at', 
     );
     assert.equal(response.headers.get('cache-control'), 'no-store');
   });
+});
+
+test('server received_at is the authoritative timing source (defect 23)', () => {
+  const receivedAtMs = Date.UTC(2026, 9, 17, 12, 0, 0);
+  const timing = getClipboardTiming(
+    {
+      received_at: new Date(receivedAtMs).toISOString(),
+      // A forged/legacy field must never win over received_at.
+      updated_at: '1999-01-01T00:00:00.000Z',
+    },
+    { ttlMs: 1_000, nowMs: receivedAtMs + 250 },
+  );
+
+  assert.equal(timing.updatedAtMs, receivedAtMs);
+  assert.equal(timing.remainingMs, 750);
 });
 
 test('text-only records fall back to raw_text for content', async () => {

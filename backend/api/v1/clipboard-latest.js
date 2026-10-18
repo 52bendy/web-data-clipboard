@@ -14,9 +14,10 @@ const QUERY_TOKEN_MESSAGE =
  *
  * Returns the latest clipboard record in the exact §4.1.2 shape
  * `{ code, data: { content, type, raw_text, source_device, platform,
- * updated_at, expire_in_seconds } }`. `updated_at` is a server-assigned epoch
- * millisecond value (defect 23), and `expire_in_seconds` reflects the
- * configured TTL rather than a client-supplied timestamp.
+ * updated_at, expire_in_seconds } }`. `updated_at` is the server receive time
+ * (`received_at`) as an epoch millisecond value (defect 23), and
+ * `expire_in_seconds` reflects the configured TTL rather than a client
+ * timestamp.
  *
  * Polling support: the response carries an `ETag` and `Last-Modified` derived
  * from `updated_at`; `If-None-Match` / `If-Modified-Since` (and the explicit
@@ -99,17 +100,17 @@ export function createClipboardLatestHandler({
 
 /**
  * Computes the server-authoritative expiry timing of a clipboard record.
- * Returns null when the record has no parseable `updated_at`.
+ * `received_at` is authoritative (defect 23); `updated_at` is the legacy alias
+ * kept for records written before the field was introduced.
+ * Returns null when the record has no parseable server receive time.
  */
 export function getClipboardTiming(
   record,
   { ttlMs = DEFAULT_TTL_MS, nowMs = Date.now() } = {},
 ) {
   if (!record) return null;
-  const updatedAtMs =
-    typeof record.updated_at === 'number'
-      ? record.updated_at
-      : Date.parse(record.updated_at);
+  const value = record.received_at ?? record.updated_at;
+  const updatedAtMs = typeof value === 'number' ? value : Date.parse(value);
   if (!Number.isFinite(updatedAtMs)) return null;
   return {
     updatedAtMs,

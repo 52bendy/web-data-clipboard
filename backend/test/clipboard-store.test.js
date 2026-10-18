@@ -38,7 +38,10 @@ test('write stores the §7.1 shape with server-assigned fields', async () => {
   assert.equal(record.data_type, 'code');
   assert.equal(record.parsed_code, '123456');
   assert.equal(record.full_text, 'Your code is 123456');
-  assert.equal(record.updated_at, new Date(clock.now()).toISOString());
+  assert.equal(record.received_at, new Date(clock.now()).toISOString());
+  assert.equal(record.updated_at, record.received_at);
+  assert.equal(record.client_timestamp, null);
+  assert.equal(record.overwrote, null);
   assert.deepEqual(record.source, {
     device_name: 'pixel-7',
     platform: 'android',
@@ -47,7 +50,7 @@ test('write stores the §7.1 shape with server-assigned fields', async () => {
   assert.deepEqual(await store.getLatest(), record);
 });
 
-test('client-supplied timestamps and ids are ignored (defect 23)', async () => {
+test('client ids and updated_at are ignored; client_timestamp is reference only', async () => {
   const { clock, store } = createHarness();
   clock.advance(60_000);
 
@@ -56,11 +59,15 @@ test('client-supplied timestamps and ids are ignored (defect 23)', async () => {
     clipboard_id: 'client-id',
     seq: 999,
     updated_at: '1999-01-01T00:00:00.000Z',
+    client_timestamp: 946684800000,
   });
 
   assert.notEqual(record.clipboard_id, 'client-id');
   assert.equal(record.seq, 1);
-  assert.equal(record.updated_at, new Date(clock.now()).toISOString());
+  assert.equal(record.received_at, new Date(clock.now()).toISOString());
+  assert.equal(record.updated_at, record.received_at);
+  // Recorded for audit only; it does not replace the server receive time.
+  assert.equal(record.client_timestamp, 946684800000);
   assert.deepEqual(record.source, {
     device_name: 'unknown',
     platform: 'unknown',
@@ -68,16 +75,48 @@ test('client-supplied timestamps and ids are ignored (defect 23)', async () => {
 });
 
 test('latest is the last accepted write by server order, not client time', async () => {
-  const { store } = createHarness();
-  await store.write({ full_text: 'first', updated_at: '2999-01-01T00:00:00Z' });
+  const { clock, store } = createHarness();
+  await store.write({
+    full_text: 'first',
+    updated_at: '2999-01-01T00:00:00Z',
+    client_timestamp: Date.UTC(2999, 0, 1),
+  });
+  clock.advance(1_000);
   await store.write({
     full_text: 'second',
     updated_at: '1999-01-01T00:00:00Z',
+    client_timestamp: Date.UTC(1999, 0, 1),
   });
 
   const latest = await store.getLatest();
   assert.equal(latest.full_text, 'second');
   assert.equal(latest.seq, 2);
+  assert.equal(latest.received_at, new Date(clock.now()).toISOString());
+  assert.equal(latest.client_timestamp, Date.UTC(1999, 0, 1));
+});
+
+test('device clock skew never overrides server arrival order (defect 23)', async () => {
+  const { clock, store } = createHarness();
+  await store.write({
+    full_text: 'slow-device-first',
+    client_timestamp: Date.UTC(2020, 0, 1),
+  });
+  clock.advance(500);
+  await store.write({
+    full_text: 'fast-device-second',
+    client_timestamp: Date.UTC(2030, 0, 1),
+  });
+  clock.advance(500);
+  await store.write({
+    full_text: 'slow-device-third',
+    client_timestamp: Date.UTC(2021, 0, 1),
+  });
+
+  const latest = await store.getLatest();
+  assert.equal(latest.full_text, 'slow-device-third');
+  assert.equal(latest.seq, 3);
+  assert.equal(latest.received_at, new Date(clock.now()).toISOString());
+  assert.equal(latest.client_timestamp, Date.UTC(2021, 0, 1));
 });
 
 test('concurrent writes leave no dirty data and all land in history', async () => {
@@ -86,6 +125,7 @@ test('concurrent writes leave no dirty data and all land in history', async () =
     full_text: `text-${i}`,
     parsed_code: `code-${i}`,
     data_type: 'code',
+    client_timestamp: 1_700_000_000_000 + i,
     source: { device_name: `device-${i % 5}`, platform: 'android' },
   }));
 
@@ -103,16 +143,25 @@ test('concurrent writes leave no dirty data and all land in history', async () =
   const index = Number(latest.full_text.split('-')[1]);
   assert.equal(latest.parsed_code, `code-${index}`);
 
-  // history contains every write, paired correctly, in server order
+  // history contains every write, paired correctly, in server order, and
+  // each entry records which record it overwrote.
   const history = await store.getHistory();
   assert.equal(history.length, 50);
   assert.deepEqual(
     history.map((entry) => entry.full_text),
     Array.from({ length: 50 }, (_, i) => `text-${i}`),
   );
-  for (const entry of history) {
-    const i = Number(entry.full_text.split('-')[1]);
+  for (const [i, entry] of history.entries()) {
     assert.equal(entry.parsed_code, `code-${i}`);
+    assert.equal(entry.client_timestamp, 1_700_000_000_000 + i);
+    assert.equal(entry.seq, i + 1);
+    if (i === 0) {
+      assert.equal(entry.overwrote, null);
+    } else {
+      assert.equal(entry.overwrote.clipboard_id, history[i - 1].clipboard_id);
+      assert.equal(entry.overwrote.seq, i);
+      assert.equal(entry.overwrote.received_at, history[i - 1].received_at);
+    }
   }
   assert.equal(new Set(history.map((entry) => entry.clipboard_id)).size, 50);
 });
@@ -137,6 +186,7 @@ test('a configurable TTL is honoured and expiry starts a fresh clipboard', async
 
   const record = await store.write({ full_text: 'b' });
   assert.equal(record.seq, 1);
+  assert.equal(record.overwrote, null);
 });
 
 test('history keeps only the configured number of entries', async () => {
@@ -175,6 +225,22 @@ test('getHistory({ limit }) returns the most recent entries', async () => {
   );
 });
 
+test('getHistory sorts by server receive time even if storage order is stale', async () => {
+  const { clock, storage, store } = createHarness();
+  await store.write({ full_text: 'first' });
+  clock.advance(10);
+  await store.write({ full_text: 'second' });
+
+  const stored = await storage.get('clipboard:history');
+  await storage.set('clipboard:history', [stored[1], stored[0]]);
+
+  const history = await store.getHistory();
+  assert.deepEqual(
+    history.map((entry) => entry.full_text),
+    ['first', 'second'],
+  );
+});
+
 test('invalid entries are rejected with typed errors', async () => {
   const { store } = createHarness();
   const isCode = (code) => (error) =>
@@ -202,6 +268,12 @@ test('invalid entries are rejected with typed errors', async () => {
     () => store.write({ full_text: 'x', source: 'android' }),
     isCode('invalid_source'),
   );
+  for (const clientTimestamp of [-1, 1.5, '2026-10-17', Number.NaN]) {
+    await assert.rejects(
+      () => store.write({ full_text: 'x', client_timestamp: clientTimestamp }),
+      isCode('invalid_client_timestamp'),
+    );
+  }
 
   assert.equal(await store.getLatest(), null);
   assert.deepEqual(await store.getHistory(), []);

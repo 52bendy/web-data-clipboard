@@ -39,15 +39,15 @@ curl -i http://localhost:3000/api/v1/clipboard/latest \
 }
 ```
 
-| Field               | Type    | Meaning                                                                                 |
-| ------------------- | ------- | --------------------------------------------------------------------------------------- |
-| `content`           | string  | Extracted code (`parsed_code`) when present; otherwise the raw text                     |
-| `type`              | string  | Stored data type: `verification_code` or `text`                                         |
-| `raw_text`          | string  | Original SMS/raw clipboard text                                                         |
-| `source_device`     | string  | Device name reported by the collector (`unknown` if absent)                             |
-| `platform`          | string  | `android` / `ios` (`unknown` if absent)                                                 |
-| `updated_at`        | integer | Server receive time in epoch milliseconds (defect 23: client timestamps are never used) |
-| `expire_in_seconds` | integer | Whole seconds remaining before the clipboard TTL elapses                                |
+| Field               | Type    | Meaning                                                                                                 |
+| ------------------- | ------- | ------------------------------------------------------------------------------------------------------- |
+| `content`           | string  | Extracted code (`parsed_code`) when present; otherwise the raw text                                     |
+| `type`              | string  | Stored data type: `verification_code` or `text`                                                         |
+| `raw_text`          | string  | Original SMS/raw clipboard text                                                                         |
+| `source_device`     | string  | Device name reported by the collector (`unknown` if absent)                                             |
+| `platform`          | string  | `android` / `ios` (`unknown` if absent)                                                                 |
+| `updated_at`        | integer | Server receive time (`received_at`) in epoch milliseconds (defect 23: client timestamps are never used) |
+| `expire_in_seconds` | integer | Whole seconds remaining before the clipboard TTL elapses                                                |
 
 The top-level shape intentionally matches the PRD §4.1.2 example: `code` plus
 `data`, with no `message` on success.
@@ -55,6 +55,28 @@ The top-level shape intentionally matches the PRD §4.1.2 example: `code` plus
 `expire_in_seconds` is derived from the configured `CLIPBOARD_TTL_MS` (default
 30 minutes per §8.2) and the server-assigned `updated_at`, not from a
 client-provided timestamp.
+
+## Ordering and multi-device conflicts (defect 23)
+
+The clipboard store assigns `received_at` when the write commits and mirrors it
+to `updated_at` for this API. The device-supplied `timestamp` is stored only as
+`client_timestamp` on the internal clipboard record (and in the collection
+log); it is never used for ordering, expiry, ETag or `Last-Modified`.
+
+When several devices report at the same time, the policy is **last arrival
+wins**:
+
+- writes serialize through one atomic per-key update; the last committed write
+  becomes the latest clipboard record;
+- every accepted write gets a monotonically increasing server `seq`;
+- every write is appended to history together with an `overwrote` snapshot
+  (`clipboard_id`, `seq`, `received_at`) of the record it replaced.
+
+Consequently a device with a slow clock cannot overwrite newer content by
+sending an old timestamp, and a device with a fast clock cannot pin the
+clipboard by sending a future timestamp. The only ordering input is server
+arrival. The full contract and examples are in
+[clipboard-ordering.md](clipboard-ordering.md).
 
 ## Errors and expiry semantics (defect 24)
 
