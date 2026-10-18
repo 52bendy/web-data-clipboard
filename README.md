@@ -26,7 +26,9 @@ node backend/scripts/pc-poll-sync.js --help
 
 验收矩阵与测量口径见
 [backend/docs/acceptance-matrix.md](backend/docs/acceptance-matrix.md)，PC 轮询示例见
-[backend/docs/pc-poll-sync.md](backend/docs/pc-poll-sync.md)。
+[backend/docs/pc-poll-sync.md](backend/docs/pc-poll-sync.md)。剪贴板 TTL 过期读取语义
+（404 = 不存在，历史日志与 TTL 解耦）见
+[backend/docs/clipboard-ttl-semantics.md](backend/docs/clipboard-ttl-semantics.md)。
 
 ## 管理后台
 
