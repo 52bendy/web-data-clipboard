@@ -62,6 +62,10 @@ ADMIN_USERNAME=admin ADMIN_PASSWORD_HASH='scrypt$...' npm run dev
 - 全链路验收脚本、PC 轮询同步示例、SSE 实时订阅示例和验收矩阵位于 `backend/scripts/` 与 `backend/docs/`；实时推送优先采用 SSE（Serverless 兼容），WebSocket 事件总线已解耦但跨实例广播留待部署子需求；部署配置（`vercel.json` / `wrangler.toml`）仍由对应部署子需求负责。
 - 仓库名为 `web-data-clipboard`，PRD 示例目录名 `data-collection-center` 仅为说明性名称。
 
+## 项目总结
+
+第一期项目概况、现状与后续路线见 [docs/project-summary.md](docs/project-summary.md)。
+
 ## 规范入口
 
 协作、提交与格式约定见 [CONTRIBUTING.md](CONTRIBUTING.md)。
