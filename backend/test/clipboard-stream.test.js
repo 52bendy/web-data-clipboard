@@ -52,9 +52,15 @@ async function withServer(options, run) {
   }
 }
 
-async function openStream(base, { token = TOKEN, headers = {} } = {}) {
+async function openStream(
+  base,
+  { token = TOKEN, headers = {}, namespace } = {},
+) {
   const controller = new AbortController();
-  const response = await fetch(`${base}/api/v1/clipboard/stream`, {
+  const path = namespace
+    ? `/api/v1/clipboard/stream?namespace=${encodeURIComponent(namespace)}`
+    : '/api/v1/clipboard/stream';
+  const response = await fetch(`${base}${path}`, {
     headers: {
       accept: 'text/event-stream',
       ...(token ? { 'X-DCC-Token': token } : {}),
@@ -166,6 +172,7 @@ test('sends ready and the current clipboard snapshot with §4.1.2 fields', async
         connected_at: FIXED_NOW,
         heartbeat_interval_ms: config.realtime.heartbeatIntervalMs,
         retry_ms: config.realtime.retryMs,
+        namespace: 'default',
       });
 
       const update = await nextEvent(events);
@@ -295,6 +302,40 @@ test('Last-Event-ID suppresses the duplicate snapshot and still receives new upd
     assert.equal(update.value.event, 'clipboard.updated');
     assert.notEqual(update.value.id, currentId);
     assert.equal(JSON.parse(update.value.data).content, '654321');
+  });
+});
+
+test('a stream only receives events from its own namespace', async () => {
+  const { config, services } = createHarness();
+
+  await withServer({ config, services }, async (base, controllers) => {
+    const shared = await openStream(base, { namespace: 'shared' });
+    controllers.push(shared.controller);
+    const events = sseEvents(shared.response);
+    const ready = await nextEvent(events);
+    assert.equal(ready.value.event, 'ready');
+    assert.equal(JSON.parse(ready.value.data).namespace, 'shared');
+
+    // Default-namespace writes must not leak into the shared subscription.
+    await seed(services, { full_text: 'default-only' });
+    await seed(services, { full_text: 'shared-only', namespace: 'shared' });
+
+    const update = await nextEvent(events);
+    assert.equal(update.value.event, 'clipboard.updated');
+    const data = JSON.parse(update.value.data);
+    assert.equal(data.raw_text, 'shared-only');
+    assert.equal(data.namespace, 'shared');
+  });
+});
+
+test('rejects an invalid namespace before streaming', async () => {
+  const { config, services } = createHarness();
+  await withServer({ config, services }, async (base) => {
+    const { response, controller } = await openStream(base, {
+      namespace: '../escape',
+    });
+    controller.abort();
+    assert.equal(response.status, 400);
   });
 });
 

@@ -5,6 +5,7 @@ import { getConfig } from './config.js';
 import { health } from '../api/v1/health.js';
 import { createClipboardLatestHandler } from '../api/v1/clipboard-latest.js';
 import { createClipboardStreamHandler } from '../api/v1/clipboard-stream.js';
+import { createClipboardWriteHandler } from '../api/v1/clipboard-write.js';
 import { createCollectHandler } from '../api/v1/collect.js';
 import { createLogsHandler } from '../api/v1/logs.js';
 import { createStatsHandler } from '../api/v1/stats.js';
@@ -18,6 +19,7 @@ import { createAdmin, isManagementApiPath } from './admin/index.js';
 import { createDashboardApi } from './admin/dashboard-api.js';
 import { createServices } from './services/index.js';
 import { authorize } from './middleware/auth.js';
+import { authenticateClipboardRequest } from './middleware/clipboard-auth.js';
 import { errorResponse } from './middleware/errors.js';
 import { isHttps } from './middleware/httpsEnforce.js';
 import { rejectQueryToken } from './middleware/queryToken.js';
@@ -94,7 +96,12 @@ export function createApp({
           const queryTokenDenied = rejectQueryToken(url);
           if (queryTokenDenied) return await send(response, queryTokenDenied);
         }
-        if (route.auth) {
+        if (route.clipboardAuth) {
+          // Clipboard routes accept the system token plus project-scoped
+          // CLIPBOARD_TOKENS credentials (REQ-202610-1276).
+          const auth = authenticateClipboardRequest(request, config);
+          if (!auth.ok) return await send(response, auth.response);
+        } else if (route.auth) {
           // Management APIs (devices / logs / stats / webhooks / settings)
           // move to the admin session once admin credentials are configured
           // (REQ-202610-1260). Before that they stay usable with X-DCC-Token
@@ -194,6 +201,12 @@ export function buildRoutes({ config, services, logger, now = Date.now }) {
     services,
     now,
   });
+  const clipboardWrite = createClipboardWriteHandler({
+    config,
+    services,
+    logger,
+    now,
+  });
   // Partial service mocks used by unit tests may not build the realtime hub;
   // only register the feed when the full service graph is present.
   const clipboardStream =
@@ -208,9 +221,16 @@ export function buildRoutes({ config, services, logger, now = Date.now }) {
       handler: rateLimit({ config })(collect),
     },
     {
+      method: 'POST',
+      path: '/api/v1/clipboard/write',
+      clipboardAuth: true,
+      queryToken: true,
+      handler: clipboardWrite,
+    },
+    {
       method: 'GET',
       path: '/api/v1/clipboard/latest',
-      auth: true,
+      clipboardAuth: true,
       handler: clipboardLatest,
     },
     ...(clipboardStream
@@ -218,7 +238,7 @@ export function buildRoutes({ config, services, logger, now = Date.now }) {
           {
             method: 'GET',
             path: '/api/v1/clipboard/stream',
-            auth: true,
+            clipboardAuth: true,
             queryToken: true,
             handler: clipboardStream,
           },

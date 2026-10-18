@@ -254,6 +254,7 @@ test('computes today counts and bound devices from retained logs', async () => {
     date: '2026-10-17',
     today_collected: 3,
     today_extracted: 2,
+    today_api_writes: 0,
     bound_devices: 3,
   });
 });

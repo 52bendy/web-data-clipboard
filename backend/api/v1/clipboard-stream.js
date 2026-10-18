@@ -1,10 +1,17 @@
 import { ReadableStream } from 'node:stream/web';
 import { TextEncoder } from 'node:util';
 import { getConfig } from '../../src/config.js';
-import { authorize } from '../../src/middleware/auth.js';
+import {
+  authenticateClipboardRequest,
+  checkNamespacePermission,
+} from '../../src/middleware/clipboard-auth.js';
 import { errorResponse } from '../../src/middleware/errors.js';
 import { rejectQueryToken } from '../../src/middleware/queryToken.js';
 import { buildClipboardPayload } from '../../src/services/clipboard-payload.js';
+import {
+  DEFAULT_NAMESPACE,
+  normalizeNamespace,
+} from '../../src/services/clipboard-namespace.js';
 import { formatClipboardEventId } from '../../src/services/realtime-hub.js';
 import { DEFAULT_TTL_MS } from '../../src/services/clipboard-store.js';
 
@@ -77,7 +84,16 @@ export function createClipboardStreamHandler({
     const queryTokenDenied = rejectQueryToken(parsedUrl);
     if (queryTokenDenied) return queryTokenDenied;
 
-    const denied = authorize(request, config.apiSecretToken);
+    const auth = authenticateClipboardRequest(request, config);
+    if (!auth.ok) return auth.response;
+
+    let namespace;
+    try {
+      namespace = normalizeNamespace(parsedUrl.searchParams.get('namespace'));
+    } catch (error) {
+      return errorResponse(400, error.message);
+    }
+    const denied = checkNamespacePermission(auth.principal, namespace, 'read');
     if (denied) return denied;
 
     if (config.realtime?.enabled === false) {
@@ -126,6 +142,16 @@ export function createClipboardStreamHandler({
 
     connection = services.realtimeHub.subscribe({
       onEvent: (event) => {
+        // Namespaces are independent clipboards: a subscriber only receives
+        // events from the namespace it opened (REQ-202610-1276).
+        const eventNamespace =
+          event?.data?.namespace ?? DEFAULT_NAMESPACE;
+        if (
+          event?.event === 'clipboard.updated' &&
+          eventNamespace !== namespace
+        ) {
+          return;
+        }
         // Buffer updates that race with the initial snapshot; only the latest
         // one matters because the clipboard exposes latest state only.
         if (!streaming) buffered.push(event);
@@ -166,7 +192,7 @@ export function createClipboardStreamHandler({
     // read are buffered and reconciled below.
     let record;
     try {
-      record = await services.clipboardStore.getLatest();
+      record = await services.clipboardStore.getLatest(namespace);
     } catch {
       connection.close('snapshot_error');
       return errorResponse(500);
@@ -180,6 +206,7 @@ export function createClipboardStreamHandler({
           connected_at: now(),
           heartbeat_interval_ms: heartbeatIntervalMs,
           retry_ms: retryMs,
+          namespace,
         },
       }),
     );

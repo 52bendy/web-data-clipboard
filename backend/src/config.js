@@ -2,7 +2,12 @@ import {
   DEFAULT_HISTORY_MAX_AGE_MS,
   DEFAULT_HISTORY_MAX_ENTRIES,
   DEFAULT_TTL_MS,
+  MAX_FULL_TEXT_LENGTH,
 } from './services/clipboard-store.js';
+import {
+  DEFAULT_NAMESPACE,
+  normalizeNamespace,
+} from './services/clipboard-namespace.js';
 import {
   DEFAULT_LOG_MAX_AGE_MS,
   DEFAULT_LOG_MAX_ENTRIES,
@@ -53,6 +58,117 @@ function strictPositiveInt(value, fallback, name) {
     throw new Error(`${name} must be a positive integer.`);
   }
   return parsed;
+}
+
+const CLIPBOARD_PERMISSIONS = ['read', 'write'];
+const MAX_PROJECT_LENGTH = 128;
+
+/**
+ * Parses `CLIPBOARD_TOKENS`, a JSON array of project-scoped credentials:
+ *
+ * ```json
+ * [{"token":"...","project":"project-a","label":"Project A",
+ *   "namespaces":["project-a","shared"],"permissions":["read","write"]}]
+ * ```
+ *
+ * Tokens are never echoed in validation errors. A malformed value fails fast
+ * so a typo cannot silently degrade into "no scoped tokens configured".
+ */
+function parseClipboardTokens(raw) {
+  if (raw === undefined || raw === null || String(raw).trim() === '') {
+    return [];
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error('CLIPBOARD_TOKENS must be valid JSON.');
+  }
+  if (!Array.isArray(parsed)) {
+    throw new Error('CLIPBOARD_TOKENS must be a JSON array.');
+  }
+
+  const seen = new Set();
+  return parsed.map((entry, index) => {
+    const label = `CLIPBOARD_TOKENS[${index}]`;
+    if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {
+      throw new Error(`${label} must be an object.`);
+    }
+    if (typeof entry.token !== 'string' || entry.token.length === 0) {
+      throw new Error(`${label}.token must be a non-empty string.`);
+    }
+    if (entry.token.length > 4096) {
+      throw new Error(`${label}.token must be at most 4096 characters.`);
+    }
+    if (seen.has(entry.token)) {
+      throw new Error(`${label}.token duplicates another token.`);
+    }
+    seen.add(entry.token);
+
+    if (
+      typeof entry.project !== 'string' ||
+      entry.project.trim().length === 0 ||
+      entry.project.length > MAX_PROJECT_LENGTH
+    ) {
+      throw new Error(
+        `${label}.project must be a non-empty string of at most ${MAX_PROJECT_LENGTH} characters.`,
+      );
+    }
+    for (const field of ['name', 'label', 'collector']) {
+      if (
+        entry[field] !== undefined &&
+        (typeof entry[field] !== 'string' ||
+          entry[field].trim().length === 0 ||
+          entry[field].length > MAX_PROJECT_LENGTH)
+      ) {
+        throw new Error(
+          `${label}.${field} must be a non-empty string of at most ${MAX_PROJECT_LENGTH} characters.`,
+        );
+      }
+    }
+
+    let namespaces = ['default'];
+    if (entry.namespaces !== undefined) {
+      if (!Array.isArray(entry.namespaces) || entry.namespaces.length === 0) {
+        throw new Error(`${label}.namespaces must be a non-empty array.`);
+      }
+      namespaces = entry.namespaces.map((namespace) => {
+        if (namespace === '*') return '*';
+        try {
+          return normalizeNamespace(namespace, {
+            field: `${label}.namespaces`,
+          });
+        } catch (error) {
+          throw new Error(error.message);
+        }
+      });
+    }
+
+    let permissions = [...CLIPBOARD_PERMISSIONS];
+    if (entry.permissions !== undefined) {
+      if (!Array.isArray(entry.permissions) || entry.permissions.length === 0) {
+        throw new Error(`${label}.permissions must be a non-empty array.`);
+      }
+      for (const permission of entry.permissions) {
+        if (!CLIPBOARD_PERMISSIONS.includes(permission)) {
+          throw new Error(
+            `${label}.permissions may only contain: read, write.`,
+          );
+        }
+      }
+      permissions = [...new Set(entry.permissions)];
+    }
+
+    return {
+      token: entry.token,
+      project: entry.project.trim(),
+      label: entry.label?.trim() ?? entry.project.trim(),
+      name: entry.name?.trim() ?? entry.project.trim(),
+      collector: entry.collector?.trim() ?? 'api',
+      namespaces,
+      permissions,
+    };
+  });
 }
 
 export function getConfig(env = process.env) {
@@ -132,6 +248,18 @@ export function getConfig(env = process.env) {
         env.CLIPBOARD_MAINTENANCE_INTERVAL_MS,
         DEFAULT_MAINTENANCE_INTERVAL_MS,
       ),
+      // Project-scoped credentials for the general write/read API
+      // (REQ-202610-1276). API_SECRET_TOKEN remains the system credential.
+      tokens: parseClipboardTokens(env.CLIPBOARD_TOKENS),
+      // Body cap and text cap of POST /api/v1/clipboard/write.
+      maxWriteBodyBytes: positiveInt(
+        env.CLIPBOARD_MAX_BODY_BYTES,
+        DEFAULT_MAX_BODY_BYTES,
+      ),
+      maxContentLength: positiveInt(
+        env.CLIPBOARD_MAX_CONTENT_LENGTH,
+        MAX_FULL_TEXT_LENGTH,
+      ),
     },
     devices: {
       // 设备离线阈值（REQ-202610-1257）：默认 24h，非法值回退默认。
@@ -148,6 +276,14 @@ export function getConfig(env = process.env) {
       ),
       // Request body cap in bytes; larger bodies are rejected 413.
       maxBodyBytes: positiveInt(env.MAX_BODY_BYTES, DEFAULT_MAX_BODY_BYTES),
+      // SMS is the first integrated collector (REQ-202610-1276). Its writes
+      // are tagged with a project, a human-readable source label and a
+      // namespace so admin filters can separate them from API writes.
+      project: env.SMS_PROJECT || 'sms',
+      sourceLabel: env.SMS_SOURCE_LABEL || '短信采集',
+      namespace: normalizeNamespace(env.SMS_NAMESPACE || DEFAULT_NAMESPACE, {
+        field: 'SMS_NAMESPACE',
+      }),
     },
     logs: {
       // Collection-log retention; bounded so the log never grows forever.

@@ -1,3 +1,4 @@
+import { DEFAULT_NAMESPACE } from './clipboard-namespace.js';
 import { DEFAULT_TTL_MS } from './clipboard-store.js';
 
 /**
@@ -40,11 +41,23 @@ export function buildClipboardPayload(
   const timing = getClipboardTiming(record, { ttlMs, nowMs });
   if (!timing || timing.remainingMs <= 0) return null;
   return {
-    content: record.parsed_code ?? record.full_text,
+    // JSON writes preserve their native value so paste consumers do not have
+    // to re-parse a string. Text/link records keep the historical mapping.
+    // `data_type` is checked explicitly because JSON `null` is a valid value.
+    content:
+      record.data_type === 'json'
+        ? record.content_json
+        : record.parsed_code ?? record.full_text,
     type: record.data_type,
     raw_text: record.full_text,
     source_device: record.source?.device_name ?? 'unknown',
     platform: record.source?.platform ?? 'unknown',
+    // Multi-source metadata (REQ-202610-1276). Older records and direct store
+    // writes fall back to explicit placeholders instead of hiding the fields.
+    namespace: record.namespace ?? DEFAULT_NAMESPACE,
+    source_project: record.source?.project ?? 'unknown',
+    source_label: record.source?.label ?? 'unknown',
+    collector: record.source?.collector ?? 'unknown',
     updated_at: timing.updatedAtMs,
     expire_in_seconds: Math.ceil(timing.remainingMs / 1000),
   };

@@ -29,9 +29,10 @@ variables, CSRF handling and deployment-layer guidance.
 
 Run `npm install` at the repository root, then `npm run dev`. `GET /api/v1/health`,
 `POST /api/v1/collect`, `GET /api/v1/logs`, `GET /api/v1/stats` and
-`GET /api/v1/devices` are live; the clipboard and webhook routes are added by
-their respective requirements. Local environment variables are documented in
-`.env.example`.
+`GET /api/v1/devices`, `POST /api/v1/clipboard/write`,
+`GET /api/v1/clipboard/latest` and `GET /api/v1/clipboard/stream` are live;
+webhook routes are added by their respective requirements. Local environment
+variables are documented in `.env.example`.
 
 ## Clipboard storage service (REQ-202610-1255)
 
@@ -291,6 +292,40 @@ the §8.3 cold-start measurement definition are in
 [docs/acceptance-matrix.md](docs/acceptance-matrix.md). PC usage and platform
 dependencies are documented in [docs/pc-poll-sync.md](docs/pc-poll-sync.md).
 
+## Multi-source clipboard and namespaces (REQ-202610-1276)
+
+The clipboard is no longer SMS-only. `POST /api/v1/clipboard/write` accepts
+text, links and JSON from any project or script, while `GET
+/api/v1/clipboard/latest?namespace=<name>` and the SSE feed read one namespace
+at a time. The SMS collector writes to `default` and tags its records with
+`source.project=sms`, `source.label=短信采集`, `source.collector=sms`; project
+writes can use their own namespace or a shared one without overwriting SMS
+data.
+
+Project-scoped credentials are configured with `CLIPBOARD_TOKENS` (JSON array);
+`API_SECRET_TOKEN` remains the system credential. Every API write is mirrored
+into the collection log, and the admin dashboard/log board display and filter
+by collector, project, source label and namespace.
+
+```sh
+curl -sS -X POST http://localhost:3000/api/v1/clipboard/write \
+  -H 'Content-Type: application/json' \
+  -H 'X-DCC-Token: <project token>' \
+  -d '{"content":{"build":"42"},"type":"json","namespace":"shared","label":"CI"}'
+```
+
+The full contract, scope rules and acceptance walkthrough are in
+[docs/multi-source-clipboard.md](docs/multi-source-clipboard.md).
+
+| Variable                       | Default | Purpose                                              |
+| ------------------------------ | ------- | ---------------------------------------------------- |
+| `CLIPBOARD_TOKENS`             | `[]`    | Project-scoped token JSON array (see docs)           |
+| `CLIPBOARD_MAX_BODY_BYTES`     | `65536` | Write API request body cap                           |
+| `CLIPBOARD_MAX_CONTENT_LENGTH` | `100000`| Maximum text/JSON payload characters                 |
+| `SMS_PROJECT`                  | `sms`   | Source project recorded on SMS collections           |
+| `SMS_SOURCE_LABEL`             | `短信采集` | Source label shown in the admin                    |
+| `SMS_NAMESPACE`                | `default` | Namespace the SMS collector writes to              |
+
 ## Realtime clipboard feed (REQ-202610-1274)
 
 `GET /api/v1/clipboard/stream` is a Server-Sent Events feed for clipboard
@@ -306,7 +341,9 @@ curl -N http://localhost:3000/api/v1/clipboard/stream \
 - `event: ready` carries `retry` and the heartbeat cadence; every subsequent
   `clipboard.updated` has `id: <updated_at>-<clipboard_id>` and the §4.1.2
   fields (`content`, `type`, `raw_text`, `source_device`, `platform`,
-  `updated_at`, `expire_in_seconds`).
+  `updated_at`, `expire_in_seconds`) plus `namespace`, `source_project`,
+  `source_label` and `collector`. Pass `?namespace=<name>` to subscribe to one
+  namespace; events from other namespaces are filtered out.
 - Idle connections receive `: heartbeat <epoch-ms>` comment frames. Clients
   reconnect with `Last-Event-ID`; the server skips a snapshot the client has
   already seen.

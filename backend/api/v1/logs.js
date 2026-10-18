@@ -105,6 +105,24 @@ export function createLogsHandler({
         `device_name must be at most ${MAX_DEVICE_LENGTH} characters.`,
       );
     }
+    // Multi-source filters (REQ-202610-1276).
+    const collector = params.get('collector') ?? '';
+    const project = params.get('project') ?? '';
+    const source = params.get('source') ?? '';
+    const namespace = params.get('namespace') ?? '';
+    for (const [name, value] of [
+      ['collector', collector],
+      ['project', project],
+      ['source', source],
+      ['namespace', namespace],
+    ]) {
+      if (value.length > MAX_DEVICE_LENGTH) {
+        return errorResponse(
+          400,
+          `${name} must be at most ${MAX_DEVICE_LENGTH} characters.`,
+        );
+      }
+    }
     const keyword = params.get('keyword') ?? '';
     if (keyword.length > MAX_KEYWORD_LENGTH) {
       return errorResponse(
@@ -129,6 +147,10 @@ export function createLogsHandler({
         device,
         deviceId,
         deviceName,
+        collector,
+        project,
+        source,
+        namespace,
         date: date.value,
         from: from.value,
         to: to.value,

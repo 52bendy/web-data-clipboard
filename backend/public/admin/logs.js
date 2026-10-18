@@ -16,9 +16,17 @@
     params.set('page', String(page));
     params.set('page_size', document.getElementById('page-size').value);
     const device = document.getElementById('device').value.trim();
+    const collector = document.getElementById('collector').value;
+    const project = document.getElementById('project').value.trim();
+    const source = document.getElementById('source').value.trim();
+    const namespace = document.getElementById('namespace').value.trim();
     const date = document.getElementById('date').value;
     const keyword = document.getElementById('keyword').value.trim();
     if (device) params.set('device', device);
+    if (collector) params.set('collector', collector);
+    if (project) params.set('project', project);
+    if (source) params.set('source', source);
+    if (namespace) params.set('namespace', namespace);
     if (date) params.set('date', date);
     if (keyword) params.set('keyword', keyword);
     if (document.getElementById('show-raw').checked) params.set('mask', '0');
@@ -30,6 +38,25 @@
     for (const entry of payload.items) {
       const tr = document.createElement('tr');
       tr.appendChild(textCell(formatTime(entry.received_at)));
+
+      // Source label: project (primary), human label (secondary) and the
+      // collector badge. All values are written via textContent.
+      const source = document.createElement('td');
+      const project = document.createElement('span');
+      project.className = 'mono';
+      project.textContent = entry.source_project || 'unknown';
+      source.appendChild(project);
+      const label = document.createElement('span');
+      label.className = 'muted small block';
+      label.textContent = entry.source_label || 'unknown';
+      source.appendChild(label);
+      const collector = document.createElement('span');
+      collector.className = 'badge';
+      collector.textContent = entry.collector || 'sms';
+      source.appendChild(collector);
+      tr.appendChild(source);
+
+      tr.appendChild(textCell(entry.namespace || 'default', 'mono'));
       const device = document.createElement('td');
       device.className = 'mono';
       device.textContent = entry.device_id;

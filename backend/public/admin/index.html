@@ -75,6 +75,11 @@
           <strong class="stat-value" id="stat-devices">—</strong>
           <span class="stat-hint">台 · 日志保留期内去重</span>
         </article>
+        <article class="stat-card">
+          <span class="stat-label">今日项目写入</span>
+          <strong class="stat-value" id="stat-api-writes">—</strong>
+          <span class="stat-hint">条 · 非短信来源</span>
+        </article>
       </section>
 
       <section
@@ -103,7 +108,7 @@
           <div class="clipboard-state" id="clipboard-empty" hidden>
             <span class="state-icon" aria-hidden="true">◇</span>
             <h3>暂无剪贴板内容</h3>
-            <p>当设备上报短信后，最新内容会自动出现在这里。</p>
+            <p>当设备上报短信或项目通过写入接口写入后，最新内容会自动出现在这里。</p>
           </div>
 
           <div class="clipboard-state" id="clipboard-expired" hidden>
@@ -141,6 +146,22 @@
         </div>
 
         <dl class="clipboard-meta" id="clipboard-meta" hidden>
+          <div>
+            <dt>来源项目</dt>
+            <dd id="meta-project">—</dd>
+          </div>
+          <div>
+            <dt>来源标签</dt>
+            <dd id="meta-label">—</dd>
+          </div>
+          <div>
+            <dt>采集器</dt>
+            <dd id="meta-collector">—</dd>
+          </div>
+          <div>
+            <dt>命名空间</dt>
+            <dd id="meta-namespace">—</dd>
+          </div>
           <div>
             <dt>来源设备</dt>
             <dd id="meta-device">—</dd>

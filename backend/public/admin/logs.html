@@ -34,12 +34,33 @@
         <p class="eyebrow">Collection log</p>
         <h1>日志看板</h1>
         <p class="muted">
-          按设备、日期与关键字筛选采集历史；分页浏览，发送人按脱敏模式展示。
+          按采集器、项目、来源标签、命名空间、设备与日期筛选多来源写入历史；
+          分页浏览，发送人按脱敏模式展示。
         </p>
       </section>
 
       <section class="panel">
         <form class="toolbar toolbar-wrap" id="filters">
+          <label class="field field-inline">
+            <span>采集器</span>
+            <select id="collector">
+              <option value="">全部</option>
+              <option value="sms">短信采集</option>
+              <option value="api">项目 API</option>
+            </select>
+          </label>
+          <label class="field field-inline">
+            <span>项目</span>
+            <input id="project" type="search" placeholder="来源项目" autocomplete="off" />
+          </label>
+          <label class="field field-inline">
+            <span>来源标签</span>
+            <input id="source" type="search" placeholder="采集器 / 项目 / 标签" autocomplete="off" />
+          </label>
+          <label class="field field-inline">
+            <span>命名空间</span>
+            <input id="namespace" type="search" placeholder="如 default" autocomplete="off" />
+          </label>
           <label class="field field-inline">
             <span>设备</span>
             <input id="device" type="search" placeholder="设备 ID 或名称" autocomplete="off" />
@@ -73,6 +94,8 @@
             <thead>
               <tr>
                 <th>接收时间</th>
+                <th>来源</th>
+                <th>命名空间</th>
                 <th>设备</th>
                 <th>平台</th>
                 <th>发送人</th>

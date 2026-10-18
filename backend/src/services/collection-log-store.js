@@ -66,6 +66,12 @@ function normalizeEntry(input, receivedAt, logId) {
     data_type: dataType = 'text',
     status = 'written',
     client_timestamp: clientTimestamp = null,
+    // Multi-source metadata (REQ-202610-1276). Defaults keep pre-existing
+    // SMS-only callers and stored entries working unchanged.
+    collector = 'sms',
+    source_project: sourceProject = 'sms',
+    source_label: sourceLabel = '短信采集',
+    namespace = 'default',
   } = input;
 
   requireString(collectionId, 'collection_id');
@@ -76,6 +82,10 @@ function normalizeEntry(input, receivedAt, logId) {
   requireString(rawContent, 'raw_content');
   requireString(dataType, 'data_type');
   requireString(status, 'status');
+  requireString(collector, 'collector');
+  requireString(sourceProject, 'source_project');
+  requireString(sourceLabel, 'source_label');
+  requireString(namespace, 'namespace');
   if (extractedCode !== null && typeof extractedCode !== 'string') {
     throw new CollectionLogError(
       'invalid_entry',
@@ -104,6 +114,10 @@ function normalizeEntry(input, receivedAt, logId) {
     data_type: dataType,
     status,
     client_timestamp: clientTimestamp,
+    collector,
+    source_project: sourceProject,
+    source_label: sourceLabel,
+    namespace,
     received_at: receivedAt,
   };
 }
@@ -193,9 +207,25 @@ function dateRange({ date, from, to }) {
   return { fromMs, toMs };
 }
 
+/** Legacy entries written before REQ-202610-1276 were all SMS collections. */
+function collectorOf(entry) {
+  return entry.collector ?? 'sms';
+}
+
 function matchesFilters(
   entry,
-  { device, deviceId, deviceName, keyword, fromMs, toMs },
+  {
+    device,
+    deviceId,
+    deviceName,
+    collector,
+    project,
+    source,
+    namespace,
+    keyword,
+    fromMs,
+    toMs,
+  },
 ) {
   const receivedMs = Date.parse(entry.received_at);
   if (fromMs !== null && receivedMs < fromMs) return false;
@@ -216,6 +246,20 @@ function matchesFilters(
       return false;
     }
   }
+  if (collector && collectorOf(entry) !== collector) return false;
+  if (project && (entry.source_project ?? 'sms') !== project) return false;
+  if (namespace && (entry.namespace ?? 'default') !== namespace) return false;
+  if (source) {
+    const needle = source.toLowerCase();
+    const haystack = [
+      collectorOf(entry),
+      entry.source_project ?? 'sms',
+      entry.source_label ?? '短信采集',
+    ]
+      .join('\n')
+      .toLowerCase();
+    if (!haystack.includes(needle)) return false;
+  }
   if (keyword) {
     const needle = keyword.toLowerCase();
     const haystack = [
@@ -225,6 +269,10 @@ function matchesFilters(
       entry.sender,
       entry.raw_content,
       entry.extracted_code ?? '',
+      collectorOf(entry),
+      entry.source_project ?? 'sms',
+      entry.source_label ?? '短信采集',
+      entry.namespace ?? 'default',
     ]
       .join('\n')
       .toLowerCase();
@@ -283,6 +331,10 @@ export function createCollectionLogStore({
     device,
     deviceId,
     deviceName,
+    collector,
+    project,
+    source,
+    namespace,
     date,
     from,
     to,
@@ -310,6 +362,10 @@ export function createCollectionLogStore({
       device: typeof device === 'string' ? device.trim() : '',
       deviceId: typeof deviceId === 'string' ? deviceId.trim() : '',
       deviceName: typeof deviceName === 'string' ? deviceName.trim() : '',
+      collector: typeof collector === 'string' ? collector.trim() : '',
+      project: typeof project === 'string' ? project.trim() : '',
+      source: typeof source === 'string' ? source.trim() : '',
+      namespace: typeof namespace === 'string' ? namespace.trim() : '',
       keyword: typeof keyword === 'string' ? keyword.trim() : '',
       ...range,
     };
@@ -355,12 +411,23 @@ export function createCollectionLogStore({
       return receivedMs >= dayStart.getTime() && receivedMs < dayEnd;
     });
 
+    const todaySms = today.filter((entry) => collectorOf(entry) === 'sms');
     return {
       date: formatLocalDate(nowMs),
-      today_collected: today.length,
-      today_extracted: today.filter((entry) => entry.extracted_code !== null)
-        .length,
-      bound_devices: new Set(entries.map((entry) => entry.device_id)).size,
+      today_collected: todaySms.length,
+      today_extracted: todaySms.filter(
+        (entry) => entry.extracted_code !== null,
+      ).length,
+      // Non-SMS writes are reported separately so the original "collected
+      // SMS" card stays comparable to pre-1276 dashboards.
+      today_api_writes: today.length - todaySms.length,
+      // Bound devices are physical collectors; API pseudo-devices are not
+      // devices in the PRD sense.
+      bound_devices: new Set(
+        entries
+          .filter((entry) => collectorOf(entry) === 'sms')
+          .map((entry) => entry.device_id),
+      ).size,
     };
   }
 

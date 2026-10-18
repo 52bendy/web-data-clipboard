@@ -110,6 +110,9 @@ test('accepts a valid report and updates the clipboard (§4.1.1)', async () => {
   assert.deepEqual(latest.source, {
     device_name: '小米 13Pro',
     platform: 'android',
+    project: 'sms',
+    label: '短信采集',
+    collector: 'sms',
   });
 });
 

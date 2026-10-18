@@ -6,10 +6,14 @@ security decisions from defects 21 and 24.
 
 The normative TTL/expiry contract is
 [clipboard-ttl-semantics.md](clipboard-ttl-semantics.md) (REQ-202610-1273).
+Multi-source writes, namespaces and project-scoped tokens are documented in
+[multi-source-clipboard.md](multi-source-clipboard.md) (REQ-202610-1276).
 
 ## Authentication
 
-Send the shared secret in the `X-DCC-Token` header:
+Send the shared secret in the `X-DCC-Token` header. The system
+`API_SECRET_TOKEN` can read every namespace; project-scoped `CLIPBOARD_TOKENS`
+credentials may read only their configured namespaces:
 
 ```sh
 curl -i http://localhost:3000/api/v1/clipboard/latest \
@@ -36,6 +40,10 @@ curl -i http://localhost:3000/api/v1/clipboard/latest \
     "raw_text": "【中国移动】您的验证码是：839201，5分钟内有效。请勿泄漏给他人。",
     "source_device": "小米 13Pro",
     "platform": "android",
+    "namespace": "default",
+    "source_project": "sms",
+    "source_label": "短信采集",
+    "collector": "sms",
     "updated_at": 1728950400000,
     "expire_in_seconds": 1800
   }
@@ -47,13 +55,18 @@ curl -i http://localhost:3000/api/v1/clipboard/latest \
 | `content`           | string  | Extracted code (`parsed_code`) when present; otherwise the raw text                                     |
 | `type`              | string  | Stored data type: `verification_code` or `text`                                                         |
 | `raw_text`          | string  | Original SMS/raw clipboard text                                                                         |
-| `source_device`     | string  | Device name reported by the collector (`unknown` if absent)                                             |
-| `platform`          | string  | `android` / `ios` (`unknown` if absent)                                                                 |
+| `source_device`     | string  | Device/runner name reported by the collector (`unknown` if absent)                                      |
+| `platform`          | string  | `android` / `ios` / `api` (`unknown` if absent)                                                         |
+| `namespace`         | string  | Clipboard namespace; `default` is the SMS pipeline (REQ-202610-1276)                                    |
+| `source_project`    | string  | Logical source project (`sms` for the SMS collector)                                                    |
+| `source_label`      | string  | Human-readable source label shown in the admin                                                          |
+| `collector`         | string  | Integration that produced the write (`sms` / `api`)                                                     |
 | `updated_at`        | integer | Server receive time (`received_at`) in epoch milliseconds (defect 23: client timestamps are never used) |
 | `expire_in_seconds` | integer | Whole seconds remaining before the clipboard TTL elapses                                                |
 
 The top-level shape intentionally matches the PRD §4.1.2 example: `code` plus
-`data`, with no `message` on success.
+`data`, with no `message` on success. Pass `?namespace=<name>` to read a
+non-default namespace; omitting it reads `default` (the SMS pipeline).
 
 `expire_in_seconds` is derived from the configured `CLIPBOARD_TTL_MS` (default
 30 minutes per §8.2) and the server-assigned `updated_at`, not from a
@@ -99,6 +112,7 @@ and the history/log retention boundary.
 | 400    | `token` query parameter present  | `{"code":400,"message":"Token must be sent in the X-DCC-Token header; query-string tokens are not supported.","data":null}` |
 | 401    | missing / invalid `X-DCC-Token`  | `{"code":401,"message":"Missing or invalid X-DCC-Token header.","data":null}`                                               |
 | 403    | HTTPS required (`ENFORCE_HTTPS`) | `{"code":403,"message":"HTTPS is required.","data":null}`                                                                   |
+| 403    | token lacks namespace permission | `{"code":403,"message":"Token is not allowed to access this namespace.","data":null}`                                       |
 | 404    | clipboard absent or TTL-expired  | `{"code":404,"message":"No clipboard data available.","data":null}`                                                         |
 | 405    | method other than GET            | `{"code":405,"message":"Method not allowed.","data":null}`                                                                  |
 | 500    | unexpected failure               | `{"code":500,"message":"Internal server error.","data":null}`                                                               |

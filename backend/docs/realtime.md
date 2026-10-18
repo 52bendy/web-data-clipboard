@@ -36,11 +36,11 @@ curl -N http://localhost:3000/api/v1/clipboard/stream \
 ```text
 event: ready
 retry: 3000
-data: {"connected_at":1792249245880,"heartbeat_interval_ms":15000,"retry_ms":3000}
+data: {"connected_at":1792249245880,"heartbeat_interval_ms":15000,"retry_ms":3000,"namespace":"default"}
 
 id: 1792249245885-8a5ca37f-0df2-4ec4-9eb2-fb3c0a6d3d6b
 event: clipboard.updated
-data: {"content":"839201","type":"verification_code","raw_text":"【中国移动】您的验证码是：839201，5分钟内有效。","source_device":"小米 13Pro","platform":"android","updated_at":1792249245885,"expire_in_seconds":1800}
+data: {"content":"839201","type":"verification_code","raw_text":"【中国移动】您的验证码是：839201，5分钟内有效。","source_device":"小米 13Pro","platform":"android","namespace":"default","source_project":"sms","source_label":"短信采集","collector":"sms","updated_at":1792249245885,"expire_in_seconds":1800}
 ```
 
 `clipboard.updated` 的 `data` 与 `GET /api/v1/clipboard/latest`（REQ-202610-1256）
@@ -52,12 +52,17 @@ data: {"content":"839201","type":"verification_code","raw_text":"【中国移动
 | `type`              | string  | `verification_code` 或 `text`              |
 | `raw_text`          | string  | 原始短信/剪贴板文本                        |
 | `source_device`     | string  | 上报设备名（缺失时为 `unknown`）           |
-| `platform`          | string  | `android` / `ios`（缺失时为 `unknown`）    |
+| `platform`          | string  | `android` / `ios` / `api`（缺失时为 `unknown`） |
+| `namespace`         | string  | 剪贴板命名空间（默认 `default`，短信链路） |
+| `source_project`    | string  | 来源项目（短信采集为 `sms`）               |
+| `source_label`      | string  | 后台展示的来源标签                         |
+| `collector`         | string  | 采集器标识（`sms` / `api`）                |
 | `updated_at`        | integer | 服务端接收时间（epoch ms，客户端时间不参与） |
 | `expire_in_seconds` | integer | 距离 TTL 过期的剩余秒数                    |
 
 事件 `id` 为 `<updated_at>-<clipboard_id>`，稳定且可去重。同一连接的重复 id 不会
-重复发送。
+重复发送。通过 `?namespace=<name>` 订阅指定命名空间（默认 `default`）；其他
+命名空间的 `clipboard.updated` 会被过滤，不会推送给该连接。
 
 ## 心跳与断线重连
 

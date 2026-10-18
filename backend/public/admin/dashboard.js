@@ -26,6 +26,7 @@
     collected: document.getElementById('stat-collected'),
     extracted: document.getElementById('stat-extracted'),
     devices: document.getElementById('stat-devices'),
+    apiWrites: document.getElementById('stat-api-writes'),
     statDate: document.getElementById('stat-date'),
     card: document.getElementById('clipboard-card'),
     badge: document.getElementById('clipboard-state-badge'),
@@ -37,6 +38,10 @@
     copy: document.getElementById('copy-button'),
     copyFeedback: document.getElementById('copy-feedback'),
     meta: document.getElementById('clipboard-meta'),
+    project: document.getElementById('meta-project'),
+    label: document.getElementById('meta-label'),
+    collector: document.getElementById('meta-collector'),
+    namespace: document.getElementById('meta-namespace'),
     device: document.getElementById('meta-device'),
     platform: document.getElementById('meta-platform'),
     received: document.getElementById('meta-received'),
@@ -107,6 +112,7 @@
     els.collected.textContent = formatNumber(stats.today_collected);
     els.extracted.textContent = formatNumber(stats.today_extracted);
     els.devices.textContent = formatNumber(stats.bound_devices);
+    els.apiWrites.textContent = formatNumber(stats.today_api_writes);
     els.statDate.textContent = stats.date || '—';
   }
 
@@ -128,6 +134,10 @@
       els.content.textContent = clipboard.content || clipboard.raw_text || '';
       els.content.hidden = false;
 
+      els.project.textContent = clipboard.source_project || 'unknown';
+      els.label.textContent = clipboard.source_label || 'unknown';
+      els.collector.textContent = clipboard.collector || 'unknown';
+      els.namespace.textContent = clipboard.namespace || 'default';
       els.device.textContent = clipboard.source_device || 'unknown';
       els.platform.textContent = clipboard.platform || 'unknown';
       els.received.textContent = formatDateTime(clipboard.updated_at);
@@ -153,8 +163,8 @@
       els.expiredText.textContent = data.clipboard_expired_at
         ? `上一条内容已于 ${formatDateTime(
             data.clipboard_expired_at,
-          )} 过期并被清除，等待新的短信上报。`
-        : '上一条内容已超过有效期并被清除，等待新的短信上报。';
+          )} 过期并被清除，等待新的采集或写入。`
+        : '上一条内容已超过有效期并被清除，等待新的采集或写入。';
       els.expired.hidden = false;
       return;
     }

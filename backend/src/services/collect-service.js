@@ -132,6 +132,12 @@ export function createCollectService({
   dispatch = async () => ({ dispatched: 0 }),
   logger = null,
   maxRawContentLength = DEFAULT_MAX_RAW_CONTENT_LENGTH,
+  // SMS is the first integrated collector (REQ-202610-1276). These defaults
+  // keep direct service construction backwards compatible; the HTTP handler
+  // passes the configurable values.
+  project = 'sms',
+  sourceLabel = '短信采集',
+  namespace = 'default',
   now = Date.now,
   randomInt,
 } = {}) {
@@ -155,18 +161,24 @@ export function createCollectService({
       type: extraction.type,
     });
 
-    const record = await clipboardStore.write({
-      full_text: payload.raw_content,
-      parsed_code: extraction.extracted_code,
-      data_type: extraction.type,
-      // Reference only: the store assigns `received_at` at commit time and
-      // never uses this value for ordering or expiry (defect 23).
-      client_timestamp: payload.timestamp,
-      source: {
-        device_name: payload.device_name,
-        platform: payload.platform,
+    const record = await clipboardStore.write(
+      {
+        full_text: payload.raw_content,
+        parsed_code: extraction.extracted_code,
+        data_type: extraction.type,
+        // Reference only: the store assigns `received_at` at commit time and
+        // never uses this value for ordering or expiry (defect 23).
+        client_timestamp: payload.timestamp,
+        source: {
+          device_name: payload.device_name,
+          platform: payload.platform,
+          project,
+          label: sourceLabel,
+          collector: 'sms',
+        },
       },
-    });
+      { namespace },
+    );
     log('collect.clipboard_updated', {
       clipboard_id: record.clipboard_id,
       received_at: record.received_at,
@@ -188,6 +200,10 @@ export function createCollectService({
           data_type: extraction.type,
           status: 'written',
           client_timestamp: payload.timestamp,
+          collector: 'sms',
+          source_project: project,
+          source_label: sourceLabel,
+          namespace,
           received_at: record.received_at,
         });
         log('collect.logged', { log_id: logRecord.log_id });
@@ -222,6 +238,10 @@ export function createCollectService({
         collection_id: collectionId,
         device_id: payload.device_id,
         sender: payload.sender,
+        collector: 'sms',
+        source_project: project,
+        source_label: sourceLabel,
+        namespace,
       }),
     ).catch((error) => {
       logger?.error('collect.dispatch_failed', {

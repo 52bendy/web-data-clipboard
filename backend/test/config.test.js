@@ -28,6 +28,78 @@ test('maskSender defaults to true and can be disabled via env', () => {
   assert.equal(getConfig({ MASK_SENDER: '0' }).maskSender, false);
 });
 
+test('SMS collector metadata defaults and namespace are configurable', () => {
+  const defaults = getConfig({});
+  assert.equal(defaults.collect.project, 'sms');
+  assert.equal(defaults.collect.sourceLabel, '短信采集');
+  assert.equal(defaults.collect.namespace, 'default');
+
+  const custom = getConfig({
+    SMS_PROJECT: 'inbox',
+    SMS_SOURCE_LABEL: '公司短信',
+    SMS_NAMESPACE: 'sms-inbox',
+  });
+  assert.equal(custom.collect.project, 'inbox');
+  assert.equal(custom.collect.sourceLabel, '公司短信');
+  assert.equal(custom.collect.namespace, 'sms-inbox');
+
+  assert.throws(
+    () => getConfig({ SMS_NAMESPACE: '../bad' }),
+    /SMS_NAMESPACE/,
+  );
+});
+
+test('CLIPBOARD_TOKENS parses project scopes with safe defaults', () => {
+  const raw = JSON.stringify([
+    {
+      token: 'token-a',
+      project: 'project-a',
+      label: '项目 A',
+      namespaces: ['project-a', 'shared'],
+      permissions: ['read', 'write'],
+    },
+    { token: 'token-b', project: 'project-b' },
+  ]);
+  const tokens = getConfig({ CLIPBOARD_TOKENS: raw }).clipboard.tokens;
+  assert.equal(tokens.length, 2);
+  assert.deepEqual(tokens[0], {
+    token: 'token-a',
+    project: 'project-a',
+    label: '项目 A',
+    name: 'project-a',
+    collector: 'api',
+    namespaces: ['project-a', 'shared'],
+    permissions: ['read', 'write'],
+  });
+  assert.deepEqual(tokens[1].namespaces, ['default']);
+  assert.deepEqual(tokens[1].permissions, ['read', 'write']);
+});
+
+test('CLIPBOARD_TOKENS rejects malformed or unsafe entries', () => {
+  const invalid = [
+    'not json',
+    JSON.stringify({ token: 'x', project: 'p' }),
+    JSON.stringify([{ token: '', project: 'p' }]),
+    JSON.stringify([{ token: 'x' }]),
+    JSON.stringify([
+      { token: 'x', project: 'p', namespaces: [] },
+    ]),
+    JSON.stringify([
+      { token: 'x', project: 'p', namespaces: ['../bad'] },
+    ]),
+    JSON.stringify([
+      { token: 'x', project: 'p', permissions: ['admin'] },
+    ]),
+    JSON.stringify([
+      { token: 'x', project: 'p' },
+      { token: 'x', project: 'q' },
+    ]),
+  ];
+  for (const value of invalid) {
+    assert.throws(() => getConfig({ CLIPBOARD_TOKENS: value }), Error, value);
+  }
+});
+
 test('log retention defaults are bounded and configurable', () => {
   const defaults = getConfig({}).logs;
   assert.equal(defaults.maxEntries, 1000);

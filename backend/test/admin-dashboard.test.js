@@ -115,7 +115,13 @@ async function seed(services, { text = true } = {}) {
     full_text: '【中国移动】您的验证码是：839201，5分钟内有效。',
     parsed_code: '839201',
     data_type: 'verification_code',
-    source: { device_name: '小米 13Pro', platform: 'android' },
+    source: {
+      device_name: '小米 13Pro',
+      platform: 'android',
+      project: 'sms',
+      label: '短信采集',
+      collector: 'sms',
+    },
   });
 }
 
@@ -181,7 +187,12 @@ test('dashboard stats and clipboard match the public APIs field by field', async
     assert.equal(dashboard.data.clipboard.raw_text, logEntry().raw_content);
     assert.equal(dashboard.data.clipboard.source_device, '小米 13Pro');
     assert.equal(dashboard.data.clipboard.platform, 'android');
+    assert.equal(dashboard.data.clipboard.namespace, 'default');
+    assert.equal(dashboard.data.clipboard.source_project, 'sms');
+    assert.equal(dashboard.data.clipboard.source_label, '短信采集');
+    assert.equal(dashboard.data.clipboard.collector, 'sms');
     assert.equal(typeof dashboard.data.clipboard.updated_at, 'number');
+    assert.equal(dashboard.data.stats.today_api_writes, 0);
   });
 });
 
@@ -227,6 +238,11 @@ test('admin dashboard page and assets are served behind the session', async () =
       'id="stat-collected"',
       'id="stat-extracted"',
       'id="stat-devices"',
+      'id="stat-api-writes"',
+      'id="meta-project"',
+      'id="meta-label"',
+      'id="meta-collector"',
+      'id="meta-namespace"',
       'id="clipboard-content"',
       'id="copy-button"',
       'id="manual-refresh"',

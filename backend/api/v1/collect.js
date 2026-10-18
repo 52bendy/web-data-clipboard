@@ -38,6 +38,9 @@ export function createCollectHandler({
     logger,
     maxRawContentLength:
       config.collect?.maxRawContentLength ?? DEFAULT_MAX_RAW_CONTENT_LENGTH,
+    project: config.collect?.project ?? 'sms',
+    sourceLabel: config.collect?.sourceLabel ?? '短信采集',
+    namespace: config.collect?.namespace ?? 'default',
     now,
     randomInt,
   });

@@ -1,10 +1,14 @@
 import { getConfig } from '../../src/config.js';
-import { authorize } from '../../src/middleware/auth.js';
+import {
+  authenticateClipboardRequest,
+  checkNamespacePermission,
+} from '../../src/middleware/clipboard-auth.js';
 import { errorResponse } from '../../src/middleware/errors.js';
 import {
   buildClipboardPayload,
   getClipboardTiming,
 } from '../../src/services/clipboard-payload.js';
+import { normalizeNamespace } from '../../src/services/clipboard-namespace.js';
 import { DEFAULT_TTL_MS } from '../../src/services/clipboard-store.js';
 
 /**
@@ -65,17 +69,28 @@ export function createClipboardLatestHandler({
     if (request.method !== 'GET') {
       return errorResponse(405);
     }
+    // Defense in depth: the route table already authenticates clipboard
+    // routes, but the handler also works when mounted directly (e.g.
+    // serverless adapters). Scoped tokens are accepted alongside the system
+    // API_SECRET_TOKEN (REQ-202610-1276).
+    const auth = authenticateClipboardRequest(request, config);
+    if (!auth.ok) return auth.response;
     // Reject query-string tokens before anything else so a leaked URL can
     // never authenticate a read (defect 21). The header is the only channel.
     if (parsedUrl.searchParams.has('token')) {
       return errorResponse(400, QUERY_TOKEN_MESSAGE);
     }
-    // Defense in depth: the route table already enforces auth: true, but the
-    // handler also works when mounted directly (e.g. serverless adapters).
-    const denied = authorize(request, config.apiSecretToken);
+
+    let namespace;
+    try {
+      namespace = normalizeNamespace(parsedUrl.searchParams.get('namespace'));
+    } catch (error) {
+      return errorResponse(400, error.message);
+    }
+    const denied = checkNamespacePermission(auth.principal, namespace, 'read');
     if (denied) return denied;
 
-    const record = await services.clipboardStore.getLatest();
+    const record = await services.clipboardStore.getLatest(namespace);
     if (!record) return noDataResponse();
 
     const timing = getClipboardTiming(record, { ttlMs, nowMs: now() });

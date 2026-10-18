@@ -175,6 +175,74 @@ test('logs API filters by device, date and keyword', async () => {
   assert.equal(byRange.data.total, 3);
 });
 
+test('logs API filters by collector, project, source label and namespace', async () => {
+  const config = makeConfig();
+  const services = makeServices(config);
+  await services.collectionLogStore.append(
+    entry({
+      collection_id: 'col_sms',
+      collector: 'sms',
+      source_project: 'sms',
+      source_label: '短信采集',
+      namespace: 'default',
+    }),
+  );
+  await services.collectionLogStore.append(
+    entry({
+      collection_id: 'col_api',
+      device_id: 'api:project-a',
+      device_name: 'project-a-ci',
+      platform: 'api',
+      sender: '',
+      raw_content: '{"build":"42"}',
+      extracted_code: null,
+      data_type: 'json',
+      collector: 'api',
+      source_project: 'project-a',
+      source_label: 'CI 构建结果',
+      namespace: 'shared',
+    }),
+  );
+  const handler = createLogsHandler({ config, services });
+
+  const byCollector = await (
+    await handler(makeRequest({ url: '/api/v1/logs?collector=api' }))
+  ).json();
+  assert.deepEqual(
+    byCollector.data.items.map((item) => item.collection_id),
+    ['col_api'],
+  );
+
+  const byProject = await (
+    await handler(makeRequest({ url: '/api/v1/logs?project=project-a' }))
+  ).json();
+  assert.deepEqual(
+    byProject.data.items.map((item) => item.collection_id),
+    ['col_api'],
+  );
+
+  const bySource = await (
+    await handler(makeRequest({ url: '/api/v1/logs?source=CI+构建' }))
+  ).json();
+  assert.deepEqual(
+    bySource.data.items.map((item) => item.collection_id),
+    ['col_api'],
+  );
+
+  const byNamespace = await (
+    await handler(makeRequest({ url: '/api/v1/logs?namespace=default' }))
+  ).json();
+  assert.deepEqual(
+    byNamespace.data.items.map((item) => item.collection_id),
+    ['col_sms'],
+  );
+
+  const stats = await services.collectionLogStore.getStats();
+  assert.equal(stats.today_collected, 1);
+  assert.equal(stats.today_api_writes, 1);
+  assert.equal(stats.bound_devices, 1);
+});
+
 test('logs API rejects invalid query parameters with 400', async () => {
   const config = makeConfig();
   const handler = createLogsHandler({ config, services: makeServices(config) });
@@ -268,6 +336,7 @@ test('stats API returns today counts and bound devices', async () => {
     date: '2026-10-17',
     today_collected: 2,
     today_extracted: 1,
+    today_api_writes: 0,
     bound_devices: 2,
   });
 
